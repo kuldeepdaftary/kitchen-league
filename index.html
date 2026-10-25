@@ -162,6 +162,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .claim.on.a{background:var(--a);border:2px solid var(--a);color:var(--on-a)}
 .claim.on.b{background:var(--b);border:2px solid var(--b);color:var(--on-b)}
 .crow.by-a .claim.b,.crow.by-b .claim.a{opacity:.45}
+.claim{position:relative;-webkit-touch-callout:none}
+.crow.multi .claim{opacity:1}
+.crow.multi .claim:not(.on){border-style:solid}
+.claim .cnt{position:absolute;top:-7px;right:-7px;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;border-radius:11px;background:var(--ink);color:var(--surface);font:700 13px/22px var(--f-body)}
 .cname{display:flex;flex-direction:column;align-items:center;text-align:center;gap:1px;min-width:0}
 .cname .t{font-weight:600;font-size:17px;line-height:1.2}
 .cname .m{font-size:13px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
@@ -271,7 +275,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .field label{font-size:13px;font-weight:600;color:var(--muted)}
 .field input,.field select,.crow-edit input{min-height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);padding:0 12px;font:inherit;font-size:16px;min-width:0;box-sizing:border-box;width:100%}
 .celist{display:flex;flex-direction:column;gap:8px}
-.crow-edit{display:grid;grid-template-columns:minmax(0,1fr) 84px auto;gap:8px;align-items:center}
+.crow-edit{display:grid;grid-template-columns:minmax(0,1fr) 84px auto auto;gap:8px;align-items:center}
+.crow-edit .repeats{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap;min-height:44px}
+.crow-edit .repeats input{width:22px;min-height:22px;height:22px;padding:0;margin:0;accent-color:var(--good)}
+@media (max-width:620px){.crow-edit{grid-template-columns:minmax(0,1fr) 84px;padding-bottom:6px;border-bottom:1px solid var(--line)}}
 .sbtn{min-height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);padding:0 16px;font-weight:600}
 .sbtn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .sbtn.danger{color:var(--b);border-color:var(--b)}
@@ -369,7 +376,7 @@ function normCfg(c){
   var o=clone(DEF_CFG);if(!c||typeof c!=='object')return o;
   if(c.names)P.forEach(function(p){if(c.names[p])o.names[p]=String(c.names[p]).slice(0,24)});
   if(c.targets)P.forEach(function(p){var t=c.targets[p]||{};if(t.water>0)o.targets[p].water=+t.water;if(t.protein>0)o.targets[p].protein=+t.protein});
-  if(Array.isArray(c.chores))o.chores=c.chores.filter(function(x){return x&&x.id&&x.name}).map(function(x){return{id:String(x.id),name:String(x.name).slice(0,60),pts:Math.max(1,Math.min(50,Math.round(+x.pts||5)))}});
+  if(Array.isArray(c.chores))o.chores=c.chores.filter(function(x){return x&&x.id&&x.name}).map(function(x){var y={id:String(x.id),name:String(x.name).slice(0,60),pts:Math.max(1,Math.min(50,Math.round(+x.pts||5)))};if(x.multi)y.multi=true;return y});
   return o;
 }
 
@@ -795,7 +802,7 @@ function topbar(T){
 function leadLine(s,day){
   var N=S.cfg.names,ch=(day&&day.chores)||{};
   if(s.a.total===0&&s.b.total===0)return 'New day, level scores. First glass of water takes the lead.';
-  var open=S.cfg.chores.filter(function(c){return!ch[c.id]}).sort(function(x,y){return y.pts-x.pts})[0];
+  var open=S.cfg.chores.filter(function(c){return!c.multi&&!ch[c.id]}).sort(function(x,y){return y.pts-x.pts})[0];
   if(s.a.total===s.b.total)return 'All square on '+s.a.total+'. '+(open?'"'+esc(open.name)+'" (+'+open.pts+') breaks the tie.':'Next sip of water breaks the tie.');
   var lead=s.a.total>s.b.total?'a':'b',trail=lead==='a'?'b':'a',gap=Math.abs(s.a.total-s.b.total);
   var line=esc(N[lead])+' leads by '+gap+'. ';
@@ -831,17 +838,24 @@ function renderToday(T){
       '<footer class="pfoot"><span class="breakdown">Water <b>'+sc.w+'</b> · Protein <b>'+sc.pr+'</b> · Chores <b>'+sc.c+'</b></span>'+
       '<button class="link" data-act="undo" data-p="'+p+'"'+(canUndo?'':' disabled')+'>Undo</button></footer></section>';
   }
-  var ch=(day&&day.chores)||{},done=cfg.chores.filter(function(c){return ch[c.id]}).length;
+  var ch=(day&&day.chores)||{},done=cfg.chores.filter(function(c){return c.multi?repKeys(ch,c.id).length:ch[c.id]}).length;
   html+=panel('a')+'<section class="panel chores" style="grid-area:chores" aria-label="Chores"><header class="chead"><h2>Chores today</h2><span>'+done+' of '+cfg.chores.length+' claimed</span></header>';
   if(!cfg.chores.length)html+='<p class="cempty">No chores set up. Add some in Settings.</p>';
   else html+='<ul class="clist">'+cfg.chores.map(function(c){
+    if(c.multi){
+      var keys=repKeys(ch,c.id),n={a:0,b:0};keys.forEach(function(k){n[ch[k].by]++});
+      var only=n.a&&!n.b?'a':n.b&&!n.a?'b':'',who=P.filter(function(p){return n[p]}).map(function(p){return esc(N[p])+' ×'+n[p]}).join(', ');
+      var rb=function(p){return '<button class="claim '+p+(n[p]?' on':'')+'" data-act="rep" data-id="'+esc(c.id)+'" data-p="'+p+'" aria-label="'+esc(N[p])+' did '+esc(c.name)+(n[p]?', '+n[p]+' so far today. Hold to take one off':'')+'">'+esc(ini[p])+(n[p]?'<span class="cnt">'+n[p]+'</span>':'')+'</button>'};
+      return '<li class="crow multi'+(only?' by-'+only:'')+'">'+rb('a')+
+        '<div class="cname"><span class="t">'+esc(c.name)+'</span><span class="m">+'+c.pts+' each time'+(who?' · '+who:'')+'</span></div>'+rb('b')+'</li>';
+    }
     var by=ch[c.id]&&ch[c.id].by;
     return '<li class="crow'+(by?' by-'+by:'')+'">'+
       '<button class="claim a'+(by==='a'?' on':'')+'" data-act="claim" data-id="'+esc(c.id)+'" data-p="a" aria-pressed="'+(by==='a')+'" aria-label="'+esc(N.a)+' did '+esc(c.name)+'">'+esc(ini.a)+'</button>'+
       '<div class="cname"><span class="t">'+esc(c.name)+'</span><span class="m">'+(by?esc(N[by])+' · +'+(ch[c.id].pts||c.pts):'+'+c.pts+' pts')+'</span></div>'+
       '<button class="claim b'+(by==='b'?' on':'')+'" data-act="claim" data-id="'+esc(c.id)+'" data-p="b" aria-pressed="'+(by==='b')+'" aria-label="'+esc(N.b)+' did '+esc(c.name)+'">'+esc(ini.b)+'</button></li>';
   }).join('')+'</ul>';
-  html+='</section>'+panel('b')+'</main><p class="rules">Tap your initial on a chore when you finish it. Water and protein score up to 15 points each by how close you get to your own target, plus 5 for hitting it. Highest total wins the day. Weeks start on Monday, and the League tab keeps the monthly table.</p>';
+  html+='</section>'+panel('b')+'</main><p class="rules">Tap your initial on a chore when you finish it. Chores that repeat score every time: tap again for each go, and press and hold your initial to take one off. Water and protein score up to 15 points each by how close you get to your own target, plus 5 for hitting it. Highest total wins the day. Weeks start on Monday, and the League tab keeps the monthly table.</p>';
   return html;
 }
 function niceStep(raw){var p=Math.pow(10,Math.floor(Math.log10(raw))),n=raw/p;return(n<=1?1:n<=2?2:n<=5?5:10)*p}
@@ -978,11 +992,35 @@ function claim(id,p){
   dispatch({t:'claim',cid:id,by:p,pts:c.pts,name:c.name});
   toast(cur?N[p]+' took "'+c.name+'" from '+N[cur.by]:N[p]+' +'+c.pts+': '+c.name);
 }
+// A chore that repeats stores each go as its own claim keyed "<choreId>~<unique>", so scoring and the Sheet backend need no change
+function repKeys(ch,id){return Object.keys(ch||{}).filter(function(k){return ch[k]&&ch[k].by&&(k===id||k.indexOf(id+'~')===0)})}
+function rep(id,p){
+  var c=S.cfg.chores.filter(function(x){return x.id===id})[0];if(!c)return;
+  setReact(p,'pop',700);
+  dispatch({t:'claim',cid:id+'~'+uid(),by:p,pts:c.pts,name:c.name});
+  var ch=S.days[todayKey()].chores,n=repKeys(ch,id).filter(function(k){return ch[k].by===p}).length;
+  toast(S.cfg.names[p]+' +'+c.pts+': '+c.name+(n>1?' ('+n+' today)':''));
+}
+function unrep(id,p){
+  var d=S.days[todayKey()],c=S.cfg.chores.filter(function(x){return x.id===id})[0];if(!d||!c)return;
+  var mine=repKeys(d.chores,id).filter(function(k){return d.chores[k].by===p}).sort(function(x,y){return(d.chores[x].t||0)-(d.chores[y].t||0)});
+  if(!mine.length)return;
+  dispatch({t:'claim',cid:mine[mine.length-1],by:null});toast('Took one "'+c.name+'" off '+S.cfg.names[p]);
+}
+// press and hold a repeat button to take one off; the click that follows the hold is swallowed
+var holdT=null,held=false;
+app.addEventListener('pointerdown',function(e){
+  var b=e.target.closest('[data-act="rep"]');held=false;clearTimeout(holdT);if(!b)return;
+  holdT=setTimeout(function(){held=true;unrep(b.dataset.id,b.dataset.p)},600);
+});
+['pointerup','pointercancel','pointerleave'].forEach(function(t){app.addEventListener(t,function(){clearTimeout(holdT)},true)});
+app.addEventListener('contextmenu',function(e){if(e.target.closest('[data-act="rep"]'))e.preventDefault()});
 app.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b||b.disabled)return;var a=b.dataset.act;
   if(a==='add')add(b.dataset.p,b.dataset.k,+b.dataset.amt);
   else if(a==='undo')undo(b.dataset.p);
   else if(a==='claim')claim(b.dataset.id,b.dataset.p);
+  else if(a==='rep'){if(held)held=false;else rep(b.dataset.id,b.dataset.p)}
   else if(a==='view'){S.view=b.dataset.v;if(S.view==='league')S.month=todayKey().slice(0,7);render();window.scrollTo(0,0)}
   else if(a==='month'){S.month=ymShift(S.month,+b.dataset.d);render()}
   else if(a==='goto'){S.month=b.dataset.ym;render();window.scrollTo(0,0)}
@@ -1058,6 +1096,7 @@ function readDraft(){
     if(v('w-'+p)!==null)draft.cfg.targets[p].water=Math.max(250,Math.round(+v('w-'+p)||DEF_CFG.targets[p].water));
     if(v('pr-'+p)!==null)draft.cfg.targets[p].protein=Math.max(10,Math.round(+v('pr-'+p)||DEF_CFG.targets[p].protein));
   });
+  draft.cfg.chores.forEach(function(c){var m=document.getElementById('cm-'+c.id);if(m){if(m.checked)c.multi=true;else delete c.multi}});
   draft.cfg.chores.forEach(function(c){var n=v('cn-'+c.id),pt=v('cp-'+c.id);if(n!==null)c.name=n.trim();if(pt!==null)c.pts=Math.max(1,Math.min(50,Math.round(+pt||5)))});
   if(v('idle')!==null)draft.dev.idle=+v('idle')||90;if(v('sens')!==null)draft.dev.sens=+v('sens')||6;
   if(v('su')!==null)draft.sheetUrl=v('su');if(v('sk')!==null)draft.sheetKey=v('sk');
@@ -1073,8 +1112,8 @@ function drawSettings(){
   });
   h+='</div><p class="note">Points come from how close each of you gets to your own target, so different targets still make a fair fight.</p></div>';
   h+='<div><h3>Chores and points</h3><div class="celist">'+c.chores.map(function(ch){
-    return '<div class="crow-edit"><input id="cn-'+esc(ch.id)+'" value="'+esc(ch.name)+'" maxlength="60" aria-label="Chore name"><input id="cp-'+esc(ch.id)+'" type="number" inputmode="numeric" min="1" max="50" value="'+ch.pts+'" aria-label="Points"><button class="sbtn" data-s="rm" data-id="'+esc(ch.id)+'">Remove</button></div>';
-  }).join('')+'</div><div class="srow"><button class="sbtn" data-s="addchore">Add chore</button></div></div>';
+    return '<div class="crow-edit"><input id="cn-'+esc(ch.id)+'" value="'+esc(ch.name)+'" maxlength="60" aria-label="Chore name"><input id="cp-'+esc(ch.id)+'" type="number" inputmode="numeric" min="1" max="50" value="'+ch.pts+'" aria-label="Points"><label class="repeats"><input type="checkbox" id="cm-'+esc(ch.id)+'"'+(ch.multi?' checked':'')+'>Repeats</label><button class="sbtn" data-s="rm" data-id="'+esc(ch.id)+'">Remove</button></div>';
+  }).join('')+'</div><div class="srow"><button class="sbtn" data-s="addchore">Add chore</button></div><p class="note">Tick <b>Repeats</b> for chores that can happen several times a day, like pumping. Each go scores again, and nobody can steal it.</p></div>';
   if(!inArtifact){
     h+='<div><h3>Google Drive sync</h3>';
     if(S.mode==='sheet'){

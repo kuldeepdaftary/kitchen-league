@@ -128,6 +128,19 @@ test('saves ops, writes a readable row and syncs the day back', () => {
   assert.equal(g.days[date].chores.dishes.by, 'b');
 });
 
+test('a repeatable chore scores every go, and taking one off removes only that go', () => {
+  const b = loadBackend(), key = b.ctx.setup(), date = '2026-10-25';
+  const go = (id, cid, by) => ({t: 'claim', id, ts: 1, date, cid, by, pts: 8, name: 'Milk Pumping'});
+  b.post({key, config: CFG, ops: [go('r1', 'pump~1', 'b'), go('r2', 'pump~2', 'b'), go('r3', 'pump~3', 'b')]});
+  let row = b.sheets.Days.cells[1];
+  assert.equal(row[4], 24, 'three goes at 8 points');
+  assert.equal(row[10], 3, 'counted as three chores');
+  b.post({key, ops: [{t: 'claim', id: 'r4', ts: 2, date, cid: 'pump~2', by: null}]});
+  row = b.sheets.Days.cells[1];
+  assert.equal(row[4], 16);
+  assert.deepEqual(Object.keys(b.get({key, since: '0'}).days[date].chores).sort(), ['pump~1', 'pump~3']);
+});
+
 test('an op that arrives twice is applied once', () => {
   const b = loadBackend(), key = b.ctx.setup(), date = '2026-10-25';
   b.post({key, ops: [addWater('same', date, 500)]});

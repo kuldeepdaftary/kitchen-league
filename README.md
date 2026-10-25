@@ -23,7 +23,7 @@ Any static host works the same way (Cloudflare Pages, Netlify, Vercel), as long 
    - If nothing shows up after you allow it, choose **Set up** again. A box shows your **key**.
 4. Back in Apps Script choose **Deploy > New deployment**. Click the gear, pick **Web app**, set **Execute as: Me** and **Who has access: Anyone**, then **Deploy**. Copy the **Web app URL** (it ends in `/exec`).
 5. Open the app on your Mac, then go to **Settings > Google Drive sync**. Paste the URL and the key and press **Connect**. Any scores already on that device are copied into the sheet.
-6. Still in Settings, set the two players' names (they start as Blue and Orange), daily targets and chores, then **Save**. They are stored in the sheet, so every device picks them up.
+6. Still in Settings, set the two players' names (they start as Blue and Orange), daily targets and chores, then **Save**. Tick **Repeats** on chores that happen several times a day, like pumping or sterilising bottles: each tap then scores again, and press and hold takes one off. They are stored in the sheet, so every device picks them up.
 
 "Anyone" means the app can reach the sheet without a Google sign-in. Nobody can read or change scores without the key.
 
