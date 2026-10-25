@@ -493,6 +493,14 @@ function pull(full){
     saveBase();recompute();render();return j;
   }).catch(function(e){sync.state='offline';sync.err=String(e&&e.message||e);render();throw e});
 }
+// Opening, waking and coming back to the screen say "Updating…" until the sheet answers, so old scores are never labelled as synced.
+// The 30-second background poll stays quiet.
+function catchUp(){
+  if(S.mode!=='sheet')return Promise.resolve();
+  sync.catching=(sync.catching||0)+1;render();
+  var done=function(){sync.catching--;render()};
+  return pull(false).then(function(j){done();return j},function(e){done();throw e});
+}
 function scheduleFlush(ms){clearTimeout(flushT);flushT=setTimeout(flush,ms)}
 function flush(){
   if(S.mode!=='sheet'||flushing)return;
@@ -824,8 +832,8 @@ function topbar(T){
   var d=dateOf(T),dateLabel=d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
   var mOn=dev.motion&&cam.stream,syncChip='';
   if(S.mode==='sheet'){
-    var n=S.pending.length,st=sync.state==='offline'?'warn':sync.state==='saving'?'':'on';
-    var label=sync.state==='offline'?'Offline'+(n?', '+n+' waiting':''):sync.state==='saving'?'Saving'+(n?' '+n:''):'Synced to Drive';
+    var n=S.pending.length,busy=sync.catching>0,st=busy||sync.state==='saving'?'':sync.state==='offline'?'warn':'on';
+    var label=busy?'Updating…':sync.state==='offline'?'Offline'+(n?', '+n+' waiting':''):sync.state==='saving'?'Saving'+(n?' '+n:''):'Synced to Drive';
     syncChip='<button class="chip '+st+'" data-act="syncnow"><span class="dot"></span>'+label+'</button>';
   }
   return '<header class="top"><div class="brand">Kitchen League</div>'+
@@ -1125,7 +1133,7 @@ app.addEventListener('click',function(e){
   else if(a==='goto'){S.month=b.dataset.ym;render();window.scrollTo(0,0)}
   else if(a==='settings')openSettings();
   else if(a==='sleep')goSleep();
-  else if(a==='syncnow'){pull(false).then(function(){flush()}).catch(function(){toast("Can't reach the Google Sheet right now. Changes are kept here and will save when it's back.")})}
+  else if(a==='syncnow'){catchUp().then(function(){flush()}).catch(function(){toast("Can't reach the Google Sheet right now. Changes are kept here and will save when it's back.")})}
   else if(a==='motion'){if(dev.motion&&cam.stream){stopMotion();toast('Motion wake off. Tap the screen to wake it.')}else startMotion(true)}
 });
 
@@ -1144,7 +1152,7 @@ function goSleep(){if(sleeping)return;sleeping=true;document.getElementById('sav
 function wake(){
   if(!sleeping)return;sleeping=false;sleepEl.hidden=true;lastActive=Date.now();render();keepAwake();
   if(celebQ.length){var q=celebQ;celebQ=[];setTimeout(function(){celebrate(q);render()},500)}
-  if(S.mode==='sheet'){pull(false).catch(function(){});flush()}
+  if(S.mode==='sheet'){catchUp().catch(function(){});flush()}
 }
 sleepEl.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();wake()});
 document.addEventListener('pointerdown',function(){lastActive=Date.now();keepAwake()},true);
@@ -1159,7 +1167,7 @@ function keepAwake(){try{if('wakeLock' in navigator&&document.visibilityState===
 document.addEventListener('visibilitychange',function(){
   if(document.visibilityState==='visible'){keepAwake();lastActive=Date.now();
     if(dev.motion&&(!cam.stream||!cam.stream.active))startMotion(false);
-    if(S.mode==='sheet'){pull(false).catch(function(){});flush()}}
+    if(S.mode==='sheet'){catchUp().catch(function(){});flush()}}
 });
 
 /* ---------- motion wake: front camera, frame differencing ---------- */
@@ -1289,7 +1297,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!modal.hidd
 /* ---------- boot ---------- */
 if(sheet&&!inArtifact){S.mode='sheet';sync.state=S.pending.length?'saving':'ok'}
 recompute();render();keepAwake();
-if(S.mode==='sheet'){pull(false).catch(function(){});flush();startPolling()}
+if(S.mode==='sheet'){catchUp().catch(function(){});flush();startPolling()}
 else connectDb();
 if(dev.motion)startMotion(false);
 takePairLink();window.addEventListener('hashchange',takePairLink);
