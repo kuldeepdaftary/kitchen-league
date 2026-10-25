@@ -851,9 +851,9 @@ function renderToday(T){
   var mName=MONTHS[+T.slice(5,7)-1];
   var mo={a:liveMood('a',moodFor(s.a.total)),b:liveMood('b',moodFor(s.b.total))};
   var html='<section class="board" aria-label="Today\'s score">'+
-    '<div class="side a'+(s.a.total<s.b.total?' lead-off':'')+'">'+avatar('a',mo.a)+'<div class="stext"><span class="sname">'+esc(N.a)+'</span><span class="snum">'+s.a.total+'</span><span class="mood">'+MOOD_TXT[mo.a]+'</span><span class="ssub">Week '+fmt(wk.a)+' · '+mName+' '+fmt(ms.tot.a)+'</span></div></div>'+
+    '<div class="side a'+(s.a.total<s.b.total?' lead-off':'')+'">'+avatar('a',mo.a)+'<div class="stext"><span class="sname">'+esc(N.a)+'</span><span class="snum">'+s.a.total+'</span><span class="mood">'+MOOD_TXT[mo.a]+'</span><span class="ssub">This week: '+pl(wk.a,'pt')+' · '+mName+': '+pl(ms.tot.a,'pt')+'</span></div></div>'+
     '<div class="mid"><span class="eyebrow">Today</span><span class="vs">VS</span><span class="eyebrow">Days won this week '+wk.wonA+'–'+wk.wonB+'</span></div>'+
-    '<div class="side b'+(s.b.total<s.a.total?' lead-off':'')+'">'+avatar('b',mo.b)+'<div class="stext"><span class="sname">'+esc(N.b)+'</span><span class="snum">'+s.b.total+'</span><span class="mood">'+MOOD_TXT[mo.b]+'</span><span class="ssub">Week '+fmt(wk.b)+' · '+mName+' '+fmt(ms.tot.b)+'</span></div></div>'+
+    '<div class="side b'+(s.b.total<s.a.total?' lead-off':'')+'">'+avatar('b',mo.b)+'<div class="stext"><span class="sname">'+esc(N.b)+'</span><span class="snum">'+s.b.total+'</span><span class="mood">'+MOOD_TXT[mo.b]+'</span><span class="ssub">This week: '+pl(wk.b,'pt')+' · '+mName+': '+pl(ms.tot.b,'pt')+'</span></div></div>'+
     '<p class="leadline">'+leadLine(s,day)+'</p></section><main class="grid">';
   function panel(p){
     var sc=s[p],st=streak(p,T),canUndo=day&&day[p]&&day[p].log.length>0;
