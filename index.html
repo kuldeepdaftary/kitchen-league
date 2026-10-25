@@ -1,0 +1,1158 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Kitchen League"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>Kitchen League</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="claude:viewport-fit-sides" content="cover">
+<!-- No web manifest on purpose: iPadOS would use its start_url and drop the pairing link when you add the page to the Home Screen. -->
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<meta name="theme-color" content="#EEF0F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1015" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: kitchen scoreboard. Score band on top, then player A | chores | player B. League view: month race chart, head-to-head table, hall of fame. */
+:root{
+  --bg:#EEF0F4; --surface:#FFFFFF; --ink:#14171E; --muted:#5B6271; --line:#D8DCE4; --track:#E4E7ED;
+  --a:#2D52D1; --a-soft:#E2E8FC; --a-ink:#1B3699; --on-a:#FFFFFF;
+  --b:#D6502A; --b-soft:#FBE5DC; --b-ink:#963013; --on-b:#FFFFFF;
+  --good:#1C8F53; --warn:#B7791F; --sleep-bg:#000000; --sleep-ink:#4A4D55; --scrim:rgba(10,12,18,.55);
+  --bronze:#B8692E; --silver:#8E98A8; --gold:#D9A21B;
+  --f-display:"Big Shoulders Display","Arial Narrow","Roboto Condensed",Impact,sans-serif;
+  --f-body:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1015; --surface:#171A21; --ink:#ECEEF3; --muted:#99A0AD; --line:#2A2E38; --track:#262A34;
+  --a:#7894FF; --a-soft:#1C2446; --a-ink:#BFCBFF; --on-a:#0B0F1F;
+  --b:#FF875C; --b-soft:#3B2119; --b-ink:#FFC4AE; --on-b:#1F0C05;
+  --good:#4CD08A; --warn:#E8B04B; color-scheme:dark;
+  --bronze:#D98A4E; --silver:#B4BDCB; --gold:#F2C23E;
+}}
+:root[data-theme="dark"]{
+  --bg:#0E1015; --surface:#171A21; --ink:#ECEEF3; --muted:#99A0AD; --line:#2A2E38; --track:#262A34;
+  --a:#7894FF; --a-soft:#1C2446; --a-ink:#BFCBFF; --on-a:#0B0F1F;
+  --b:#FF875C; --b-soft:#3B2119; --b-ink:#FFC4AE; --on-b:#1F0C05;
+  --good:#4CD08A; --warn:#E8B04B; color-scheme:dark;
+  --bronze:#D98A4E; --silver:#B4BDCB; --gold:#F2C23E;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+input,select{-webkit-user-select:text;user-select:text}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:disabled{cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--a);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+#app{min-height:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:14px;padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1400px;margin:0 auto}
+
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--f-display);font-weight:900;font-size:28px;letter-spacing:.04em;text-transform:uppercase;line-height:1}
+.tabs{display:inline-flex;background:var(--surface);border-radius:999px;padding:4px;gap:2px}
+.tab{min-height:38px;padding:0 18px;border-radius:999px;border:none;background:transparent;font-weight:700;font-size:15px;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--surface)}
+.tmeta{color:var(--muted);font-weight:500}
+.tact{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.chip{min-height:40px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.chip.on .dot{background:var(--good)}
+.chip.warn .dot{background:var(--warn)}
+
+.board{background:var(--surface);border-radius:var(--r);display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;overflow:hidden}
+.side{display:flex;flex-direction:row;align-items:center;gap:14px;padding:12px 18px;min-width:0}
+.side.b{flex-direction:row-reverse;text-align:right}
+.stext{display:flex;flex-direction:column;gap:2px;min-width:0}
+.side.b .stext{align-items:flex-end}
+.mood{font-size:13px;font-weight:700;font-style:italic}
+.side.a .mood{color:var(--a-ink)} .side.b .mood{color:var(--b-ink)}
+
+/* Avatars */
+.av{width:108px;height:116px;flex:none}
+.av svg{width:100%;height:100%;overflow:visible;display:block}
+.av .bgc.a{fill:var(--a-soft)} .av .bgc.b{fill:var(--b-soft)}
+.av .face{transform-box:view-box;transform-origin:60px 118px}
+.av .eyes{transform-box:view-box;transform-origin:60px 64px}
+.m-cry .face{animation:shake .22s linear infinite}
+.m-sad .face{animation:droop 3.2s ease-in-out infinite}
+.m-happy .face{animation:bob 2.2s ease-in-out infinite}
+.m-laugh .face{animation:rock .42s ease-in-out infinite}
+.m-shock .face{animation:jolt .5s ease-out 1}
+.m-sleep .face{animation:breathe 4s ease-in-out infinite}
+.m-yawn .face{animation:stretch 3.4s ease-in-out infinite}
+.m-smug .face{animation:nod 1.6s ease-in-out infinite}
+.m-party .face{animation:rock .42s ease-in-out infinite}
+.m-meh .eyes,.m-happy .eyes,.m-sad .eyes{animation:blink 4.5s infinite}
+.tear{transform-box:view-box;animation:fall 1.05s linear infinite}
+.tear.t2{animation-delay:.35s} .tear.t3{animation-delay:.7s}
+.joy.l{transform-box:view-box;animation:squirtL .8s ease-out infinite}
+.joy.r{transform-box:view-box;animation:squirtR .8s ease-out infinite}
+.joy.d2{animation-delay:.4s}
+.spark{transform-box:fill-box;transform-origin:center;animation:twinkle 1.3s ease-in-out infinite}
+.spark.s2{animation-delay:.45s} .spark.s3{animation-delay:.9s}
+.sweat{transform-box:view-box;animation:fall 2.4s ease-in infinite}
+.zz{transform-box:fill-box;animation:floatz 3s ease-in-out infinite;font-family:var(--f-display);font-weight:800}
+.zz.z2{animation-delay:1s} .zz.z3{animation-delay:2s}
+.av.pop{animation:pop .7s ease-out 1}
+@keyframes shake{0%,100%{transform:translateX(-1.6px) rotate(-1deg)}50%{transform:translateX(1.6px) rotate(1deg)}}
+@keyframes droop{0%,100%{transform:rotate(-2deg) translateY(1px)}50%{transform:rotate(-5deg) translateY(4px)}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes rock{0%,100%{transform:rotate(-7deg) translateY(0)}50%{transform:rotate(7deg) translateY(-5px)}}
+@keyframes jolt{0%{transform:translateY(0) scale(1)}25%{transform:translateY(-10px) scale(1.08)}100%{transform:translateY(0) scale(1)}}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+@keyframes fall{0%{transform:translateY(0);opacity:1}100%{transform:translateY(30px);opacity:0}}
+@keyframes squirtL{0%{transform:translate(0,0);opacity:1}100%{transform:translate(-18px,10px);opacity:0}}
+@keyframes squirtR{0%{transform:translate(0,0);opacity:1}100%{transform:translate(18px,10px);opacity:0}}
+@keyframes twinkle{0%,100%{transform:scale(.3);opacity:0}50%{transform:scale(1);opacity:1}}
+@keyframes floatz{0%{transform:translate(0,0);opacity:0}30%{opacity:1}100%{transform:translate(10px,-22px);opacity:0}}
+@keyframes pop{0%{transform:scale(1)}30%{transform:scale(1.2) translateY(-10px)}60%{transform:scale(.94)}100%{transform:scale(1)}}
+@keyframes stretch{0%,100%{transform:scaleY(1)}45%,60%{transform:scaleY(1.05) rotate(-2deg)}}
+@keyframes nod{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg) translateY(-2px)}}
+#savs{display:flex;gap:28px;opacity:.4}
+#savs .av{width:90px;height:98px}
+.sname{font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
+.side.a .sname{color:var(--a)} .side.b .sname{color:var(--b)}
+.snum{font-family:var(--f-display);font-weight:900;font-size:clamp(56px,8vw,96px);line-height:.9;font-variant-numeric:tabular-nums}
+.side.a .snum{color:var(--a)} .side.b .snum{color:var(--b)}
+.side.lead-off .snum{opacity:.55}
+.ssub{color:var(--muted);font-size:14px;font-weight:500;font-variant-numeric:tabular-nums}
+.mid{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.vs{font-family:var(--f-display);font-weight:800;font-size:30px;color:var(--muted);line-height:1}
+.leadline{grid-column:1 / -1;margin:0;padding:10px 22px;border-top:1px solid var(--line);font-weight:600;font-size:17px;text-wrap:balance}
+
+.grid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) minmax(0,1fr);grid-template-areas:"a chores b";align-items:start}
+.panel{background:var(--surface);border-radius:var(--r);overflow:hidden;min-width:0}
+
+.phead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 16px}
+.p-a .phead{background:var(--a);color:var(--on-a)}
+.p-b .phead{background:var(--b);color:var(--on-b)}
+.pname{font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:.03em;text-transform:uppercase;line-height:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pstreak{font-size:13px;font-weight:600;white-space:nowrap}
+.meter{display:flex;flex-direction:column;gap:10px;padding:16px 16px 4px}
+.mrow{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.mlabel{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.mval{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:500}
+.mval b{font-family:var(--f-display);font-weight:800;font-size:30px;color:var(--ink);letter-spacing:.01em}
+.track{height:12px;border-radius:999px;background:var(--track);overflow:hidden}
+.fill{height:100%;border-radius:999px;transition:width .35s ease}
+.p-a .fill{background:var(--a)} .p-b .fill{background:var(--b)}
+.goal{font-size:13px;font-weight:700;color:var(--good)}
+.btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:8px}
+.btn{min-height:54px;border-radius:12px;border:none;font-weight:700;font-size:18px;font-variant-numeric:tabular-nums;transition:transform .08s ease}
+.btn:active{transform:scale(.96)}
+.p-a .btn{background:var(--a-soft);color:var(--a-ink)}
+.p-b .btn{background:var(--b-soft);color:var(--b-ink)}
+.pfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px 16px;margin-top:10px;border-top:1px solid var(--line)}
+.breakdown{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.breakdown b{color:var(--ink)}
+.link{background:none;border:1.5px solid var(--line);border-radius:10px;min-height:40px;padding:0 14px;font-weight:600;font-size:14px}
+.link:disabled{opacity:.4}
+
+.chead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:14px 16px 10px;flex-wrap:wrap}
+.chead h2{margin:0;font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:.03em;text-transform:uppercase;line-height:1}
+.chead span{color:var(--muted);font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+.clist{list-style:none;margin:0;padding:0 8px 8px;display:flex;flex-direction:column;gap:4px}
+.crow{display:grid;grid-template-columns:56px minmax(0,1fr) 56px;gap:10px;align-items:center;padding:4px;border-radius:12px;transition:background .2s}
+.crow.by-a{background:var(--a-soft)} .crow.by-b{background:var(--b-soft)}
+.claim{width:56px;height:52px;border-radius:12px;border:2px dashed var(--line);background:transparent;font-family:var(--f-display);font-weight:800;font-size:22px;color:var(--muted);transition:transform .08s ease}
+.claim:active{transform:scale(.94)}
+.claim.on.a{background:var(--a);border:2px solid var(--a);color:var(--on-a)}
+.claim.on.b{background:var(--b);border:2px solid var(--b);color:var(--on-b)}
+.crow.by-a .claim.b,.crow.by-b .claim.a{opacity:.45}
+.cname{display:flex;flex-direction:column;align-items:center;text-align:center;gap:1px;min-width:0}
+.cname .t{font-weight:600;font-size:17px;line-height:1.2}
+.cname .m{font-size:13px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.crow.by-a .cname .m{color:var(--a-ink)} .crow.by-b .cname .m{color:var(--b-ink)}
+.cempty{padding:20px 16px;color:var(--muted)}
+.rules{color:var(--muted);font-size:13px;margin:0;padding:0 4px;line-height:1.5}
+
+/* League */
+.mnav{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mnav h1{margin:0;font-family:var(--f-display);font-weight:900;font-size:clamp(34px,5vw,48px);text-transform:uppercase;letter-spacing:.02em;line-height:1;min-width:0}
+.arrow{width:46px;height:46px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);font-size:22px;font-weight:700;line-height:1}
+.arrow:disabled{opacity:.35}
+.pill{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:700;background:var(--track);color:var(--muted)}
+.pill.a{background:var(--a);color:var(--on-a)} .pill.b{background:var(--b);color:var(--on-b)}
+.lgrid{display:grid;gap:14px;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);align-items:start}
+.lhead{padding:14px 16px 4px}
+.lhead h2{margin:0;font-family:var(--f-display);font-weight:800;font-size:24px;letter-spacing:.03em;text-transform:uppercase;line-height:1}
+.lhead p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.chart{padding:8px 8px 12px}
+.chart svg{display:block;width:100%;height:auto;max-width:100%}
+.chart text{fill:var(--muted);font-family:var(--f-body);font-size:12px;font-weight:600}
+.chart .gl{stroke:var(--line);stroke-width:1}
+.chart .ln{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.chart .ln.a{stroke:var(--a)} .chart .ln.b{stroke:var(--b)}
+.chart .ar.a{fill:var(--a);opacity:.08} .chart .ar.b{fill:var(--b);opacity:.08}
+.chart .dt.a{fill:var(--a)} .chart .dt.b{fill:var(--b)}
+.chart text.va{fill:var(--a);font-weight:800;font-size:14px} .chart text.vb{fill:var(--b);font-weight:800;font-size:14px}
+.chart .empty{fill:var(--muted);font-size:15px}
+.legend{display:flex;gap:16px;padding:0 16px 14px;font-size:14px;font-weight:600;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:4px;border-radius:2px;display:inline-block}
+.legend .a i{background:var(--a)} .legend .b i{background:var(--b)}
+.h2h{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.h2h th,.h2h td{padding:11px 16px;border-top:1px solid var(--line);text-align:right;font-size:15px}
+.h2h th:first-child,.h2h td:first-child{text-align:left;color:var(--muted);font-weight:600}
+.h2h thead th{border-top:none;font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.h2h thead th.a{color:var(--a)} .h2h thead th.b{color:var(--b)}
+.h2h td.win.a{color:var(--a);font-weight:800} .h2h td.win.b{color:var(--b);font-weight:800}
+.h2h td.sm{font-size:13px}
+.tw{overflow-x:auto}
+.fame{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.fame div{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.fame .k{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.fame .v{font-family:var(--f-display);font-weight:800;font-size:28px;line-height:1;font-variant-numeric:tabular-nums}
+.fame .v .a{color:var(--a)} .fame .v .b{color:var(--b)} .fame .v .s{color:var(--muted);font-size:20px;padding:0 4px}
+.mlist{list-style:none;margin:0;padding:0}
+.mlist li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--line)}
+.mlist .mn{font-weight:700}
+.mlist .sc{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.mlist button{background:none;border:none;padding:0;text-align:left;font-weight:700;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
+.lempty{padding:14px 16px 18px;color:var(--muted);margin:0}
+
+/* Trophies: one row per trophy, player A | trophy | player B, like the chore list */
+.tlist{list-style:none;margin:0;padding:0}
+.trow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) minmax(0,1fr);gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--line)}
+.tmid{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;min-width:0}
+.tico{font-size:28px;line-height:1.1}
+.tmid .t{font-weight:700;font-size:17px;line-height:1.2}
+.tmid .m{font-size:13px;color:var(--muted);font-weight:500}
+.tp{display:flex;flex-direction:column;gap:5px;min-width:0}
+.tp.b{align-items:flex-end;text-align:right}
+.pips{display:flex;gap:5px}
+.pip{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);box-sizing:border-box}
+.pip.t1{background:var(--bronze);border-color:var(--bronze)} .pip.t2{background:var(--silver);border-color:var(--silver)} .pip.t3{background:var(--gold);border-color:var(--gold)}
+.tname{font-weight:700;font-size:15px}
+.tp.a .tname{color:var(--a-ink)} .tp.b .tname{color:var(--b-ink)}
+.tp .tname.none{color:var(--muted);font-weight:600}
+.tbar{height:6px;border-radius:999px;background:var(--track);overflow:hidden;width:100%;max-width:220px}
+.tbar i{display:block;height:100%;border-radius:999px;transition:width .35s ease}
+.tp.a .tbar i{background:var(--a)} .tp.b .tbar i{background:var(--b)}
+.tprog{font-size:13px;color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums}
+
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden}
+.confetti i{position:absolute;top:-16px;width:10px;height:14px;border-radius:2px;animation:confetti 2.4s cubic-bezier(.2,.6,.4,1) forwards}
+@keyframes confetti{100%{transform:translate3d(var(--dx),105vh,0) rotate(var(--rot))}}
+
+@media (max-width:980px){
+  .grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"a b" "chores chores"}
+  .lgrid{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:620px){
+  .grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "b" "chores"}
+  .board{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .mid{grid-column:1 / -1;grid-row:1;flex-direction:row;justify-content:center;gap:10px;padding:10px 8px 0}
+  .mid .vs{font-size:20px}
+  .side.a{grid-column:1;grid-row:2} .side.b{grid-column:2;grid-row:2}
+  .side{padding:10px 12px;gap:8px}
+  .av{width:64px;height:70px}
+  .mood{display:none}
+  .leadline{padding:10px 14px;font-size:15px}
+  .tmeta{width:100%;order:3}
+  .h2h th,.h2h td{padding:10px 12px}
+  .trow{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"mid mid" "a b"}
+  .trow .tmid{grid-area:mid} .trow .tp.a{grid-area:a} .trow .tp.b{grid-area:b}
+}
+
+#sleep{position:fixed;inset:0;z-index:100;background:var(--sleep-bg);color:var(--sleep-ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer}
+#sleep .clock{font-family:var(--f-display);font-weight:800;font-size:clamp(64px,12vw,140px);line-height:1;font-variant-numeric:tabular-nums}
+#sleep .ss{font-size:16px;font-weight:600;letter-spacing:.06em;font-variant-numeric:tabular-nums;text-align:center;padding:0 16px}
+
+#modal{position:fixed;inset:0;z-index:50;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:calc(20px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet{background:var(--surface);color:var(--ink);border-radius:18px;width:100%;max-width:720px;padding:22px;display:flex;flex-direction:column;gap:22px;box-sizing:border-box}
+.sheet h2{margin:0;font-family:var(--f-display);font-weight:800;font-size:30px;text-transform:uppercase;letter-spacing:.03em}
+.sheet h3{margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.field input,.field select,.crow-edit input{min-height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);padding:0 12px;font:inherit;font-size:16px;min-width:0;box-sizing:border-box;width:100%}
+.celist{display:flex;flex-direction:column;gap:8px}
+.crow-edit{display:grid;grid-template-columns:minmax(0,1fr) 84px auto;gap:8px;align-items:center}
+.sbtn{min-height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);padding:0 16px;font-weight:600}
+.sbtn.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.sbtn.danger{color:var(--b);border-color:var(--b)}
+.srow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.sactions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.note{font-size:14px;color:var(--muted);line-height:1.5;margin:6px 0 0}
+.note b{color:var(--ink)}
+.lvl{height:10px;border-radius:999px;background:var(--track);overflow:hidden;position:relative;margin-top:8px}
+.lvl i{position:absolute;inset:0 auto 0 0;background:var(--good);width:0}
+.lvl b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
+.pair{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-top:10px}
+.qr{width:176px;height:176px;flex:none;background:#fff;border-radius:12px;padding:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center}
+.qr svg{width:100%;height:100%;display:block}
+.qr span{color:#5B6271;font-size:13px;text-align:center}
+.pairtext{flex:1 1 240px;min-width:0}
+.pairtext .note:first-child{margin-top:0}
+
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--surface);padding:12px 18px;border-radius:12px;font-weight:600;max-width:min(90vw,520px);text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+#cam{position:fixed;width:2px;height:2px;opacity:0;pointer-events:none;left:0;top:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head><body>
+<div id="app"></div>
+<div id="sleep" hidden role="button" aria-label="Wake screen"><div id="savs"></div><div class="clock" id="sclock"></div><div class="ss" id="sscore"></div></div>
+<div id="modal" hidden></div>
+<div id="toast" hidden role="status" aria-live="polite"></div>
+<video id="cam" playsinline muted autoplay></video>
+
+<script>
+/* SHARED START (also used by the Google Sheet backend) */
+function blankDay(k){return{date:k,a:{water:0,protein:0,log:[]},b:{water:0,protein:0,log:[]},chores:{},seen:[]}}
+function normDay(d,k){
+  d=d&&typeof d==='object'?d:blankDay(k);
+  ['a','b'].forEach(function(p){var x=d[p]=d[p]||{};x.water=+x.water||0;x.protein=+x.protein||0;x.log=Array.isArray(x.log)?x.log:[]});
+  d.chores=d.chores&&typeof d.chores==='object'?d.chores:{};d.seen=Array.isArray(d.seen)?d.seen:[];d.date=k;return d;
+}
+function dayActive(d){if(!d)return false;return ['a','b'].some(function(p){return d[p]&&(d[p].water>0||d[p].protein>0)})||Object.keys(d.chores||{}).length>0}
+function applyOp(d,o){
+  if(o.id&&d.seen.indexOf(o.id)>=0)return d;
+  if(o.t==='add'){var x=d[o.p];x[o.k]=(x[o.k]||0)+o.amt;x.log.push({k:o.k,a:o.amt,t:o.ts});if(x.log.length>40)x.log=x.log.slice(-40);if(o.tw){x.tw=o.tw;x.tp=o.tp}}
+  else if(o.t==='undo'){var y=d[o.p],e=y.log.pop();if(e)y[e.k]=Math.max(0,(y[e.k]||0)-e.a)}
+  else if(o.t==='claim'){if(o.by)d.chores[o.cid]={by:o.by,pts:o.pts,name:o.name,t:o.ts};else delete d.chores[o.cid]}
+  else if(o.t==='clear'){var b=blankDay(d.date);d.a=b.a;d.b=b.b;d.chores={}}
+  else if(o.t==='import'){if(!dayActive(d)&&o.day){var s=d.seen;d=normDay(JSON.parse(JSON.stringify(o.day)),d.date);d.seen=s}}
+  if(o.id){d.seen.push(o.id);if(d.seen.length>80)d.seen=d.seen.slice(-80)}
+  return d;
+}
+function scoreOf(d,p,t){
+  var x=(d&&d[p])||{water:0,protein:0},hitW=x.water>=t.water,hitP=x.protein>=t.protein;
+  var w=Math.round(Math.min(1,x.water/t.water)*15)+(hitW?5:0),pr=Math.round(Math.min(1,x.protein/t.protein)*15)+(hitP?5:0);
+  var c=0,cn=0,ch=(d&&d.chores)||{};for(var id in ch){if(ch[id]&&ch[id].by===p){c+=ch[id].pts||0;cn++}}
+  return{w:w,pr:pr,c:c,cn:cn,total:w+pr+c,hitW:hitW,hitP:hitP,water:x.water||0,protein:x.protein||0,t:t};
+}
+/* SHARED END */
+
+(function(){
+'use strict';
+var DEF_CFG={
+  names:{a:'Blue',b:'Orange'},
+  targets:{a:{water:3000,protein:120},b:{water:2500,protein:90}},
+  chores:[
+    {id:'dishes',name:'Load or empty dishwasher',pts:10},
+    {id:'counters',name:'Wipe counters and hob',pts:8},
+    {id:'dinner',name:'Cook dinner',pts:15},
+    {id:'wash',name:'Put a wash on',pts:8},
+    {id:'fold',name:'Fold and put away laundry',pts:10},
+    {id:'bins',name:'Bins and recycling out',pts:6},
+    {id:'hoover',name:'Hoover downstairs',pts:12},
+    {id:'tidy',name:'Ten-minute living room tidy',pts:6}
+  ]
+};
+var P=['a','b'];
+var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+var inArtifact=!!(window.claude&&typeof window.claude.use==='function');
+
+/* utils */
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function pad(n){return(n<10?'0':'')+n}
+function fmt(n){return Number(n).toLocaleString('en-GB')}
+function keyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function dateOf(k){var p=k.split('-').map(Number);return new Date(p[0],p[1]-1,p[2])}
+function addDays(k,n){var d=dateOf(k);d.setDate(d.getDate()+n);return keyOf(d)}
+function mondayOf(k){var d=dateOf(k);d.setDate(d.getDate()-((d.getDay()+6)%7));return keyOf(d)}
+function todayKey(){return keyOf(new Date())}
+function ymLabel(ym){return MONTHS[+ym.slice(5,7)-1]+' '+ym.slice(0,4)}
+function ymShift(ym,n){var y=+ym.slice(0,4),m=+ym.slice(5,7)-1+n;y+=Math.floor(m/12);m=((m%12)+12)%12;return y+'-'+pad(m+1)}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+var LS={
+  get:function(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+function normCfg(c){
+  var o=clone(DEF_CFG);if(!c||typeof c!=='object')return o;
+  if(c.names)P.forEach(function(p){if(c.names[p])o.names[p]=String(c.names[p]).slice(0,24)});
+  if(c.targets)P.forEach(function(p){var t=c.targets[p]||{};if(t.water>0)o.targets[p].water=+t.water;if(t.protein>0)o.targets[p].protein=+t.protein});
+  if(Array.isArray(c.chores))o.chores=c.chores.filter(function(x){return x&&x.id&&x.name}).map(function(x){return{id:String(x.id),name:String(x.name).slice(0,60),pts:Math.max(1,Math.min(50,Math.round(+x.pts||5)))}});
+  return o;
+}
+
+/* state */
+var S={cfg:normCfg(LS.get('kl.cfg',null)),base:LS.get('kl.days',{})||{},pending:LS.get('kl.pending',[])||[],days:{},view:'today',month:todayKey().slice(0,7),mode:'local'};
+var dev=Object.assign({idle:90,sens:6,motion:false},LS.get('kl.dev',{}));
+var sheet=LS.get('kl.sheet',null);
+var sync={state:'idle',since:LS.get('kl.since',0)||0,cfgPending:LS.get('kl.cfgPending',false)};
+function saveDev(){LS.set('kl.dev',dev)}
+Object.keys(S.base).forEach(function(k){S.base[k]=normDay(S.base[k],k)});
+
+function recompute(){
+  var days=Object.assign({},S.base),cl={};
+  S.pending.forEach(function(o){
+    if(!cl[o.date]){days[o.date]=normDay(days[o.date]?clone(days[o.date]):null,o.date);cl[o.date]=1}
+    days[o.date]=applyOp(days[o.date],o);
+  });
+  S.days=days;
+}
+function saveBase(){LS.set('kl.days',S.base)}
+
+/* ---------- storage modes: Google Sheet (hosted), cloud db (artifact), this device ---------- */
+var db=null,timers={},inflight={},dirty={},ver={},cfgDirty=false,cfgVer=0;
+function dispatch(op){
+  op.id=uid();op.ts=Date.now();op.date=op.date||todayKey();
+  if(S.mode==='sheet'){S.pending.push(op);LS.set('kl.pending',S.pending);recompute();render();scheduleFlush(250);return}
+  S.base[op.date]=applyOp(normDay(S.base[op.date]?clone(S.base[op.date]):null,op.date),op);
+  saveBase();recompute();render();
+  if(S.mode==='db')markDirty(op.date);
+}
+function saveCfg(){
+  LS.set('kl.cfg',S.cfg);
+  if(S.mode==='sheet'){sync.cfgPending=true;LS.set('kl.cfgPending',true);scheduleFlush(100)}
+  else if(S.mode==='db'){
+    cfgDirty=true;var v=++cfgVer;
+    db.doc('config/main').set(clone(S.cfg)).then(function(){if(v===cfgVer)cfgDirty=false},function(){cfgDirty=false;toast("Couldn't save settings to the cloud.")});
+  }
+}
+/* cloud db (inside Claude) */
+function connectDb(){
+  if(!inArtifact)return;
+  window.claude.use('db').then(function(d){
+    if(!d)return;db=d;S.mode='db';
+    try{
+      db.doc('config/main').onSnapshot(function(s){if(s.exists&&!cfgDirty){S.cfg=normCfg(s.data());LS.set('kl.cfg',S.cfg);render()}},function(){});
+      db.collection('days').onSnapshot(function(qs){
+        var next={};
+        qs.docs.forEach(function(doc){if(doc.exists)next[doc.id]=normDay(clone(doc.data()),doc.id)});
+        Object.keys(dirty).forEach(function(k){if(S.base[k])next[k]=S.base[k]});
+        if(qs.empty&&!qs.metadata.fromCache&&Object.keys(S.base).length){Object.keys(S.base).forEach(function(k){next[k]=S.base[k];markDirty(k)})}
+        if(!connectDb.loaded){connectDb.loaded=true;achQuiet=true}
+        S.base=next;saveBase();recompute();render();
+      },function(){});
+    }catch(e){db=null;S.mode='local'}
+    render();
+  }).catch(function(){});
+}
+function markDirty(k){dirty[k]=1;ver[k]=(ver[k]||0)+1;clearTimeout(timers[k]);timers[k]=setTimeout(function(){flushDoc(k)},600)}
+function flushDoc(k){
+  if(!db){delete dirty[k];return}
+  if(inflight[k]){timers[k]=setTimeout(function(){flushDoc(k)},400);return}
+  var v=ver[k],body=clone(S.base[k]);inflight[k]=true;
+  db.doc('days/'+k).set(body).then(function(){inflight[k]=false;if(ver[k]===v)delete dirty[k]},function(e){
+    inflight[k]=false;
+    if(e&&e.code==='unavailable')timers[k]=setTimeout(function(){flushDoc(k)},1500+Math.random()*1500);
+    else{delete dirty[k];toast("Couldn't save to the cloud, so this is kept on this device only.")}
+  });
+}
+/* Google Sheet (hosted copy) */
+var flushT=null,flushing=false,pullT=null;
+function sheetUrl(params){var u=sheet.url;return u+(u.indexOf('?')<0?'?':'&')+params}
+// Apps Script answers with an HTML page when the deployment is wrong or not yet authorised
+function readJson(r){return r.json().catch(function(){throw new Error('The sheet sent back a web page instead of scores. Check the deployment is a Web app that Anyone can access, and that Set up has been run once in the sheet.')})}
+function mergeDays(days){Object.keys(days||{}).forEach(function(k){S.base[k]=normDay(days[k],k)})}
+function pull(full){
+  if(S.mode!=='sheet')return Promise.resolve();
+  // ask for a minute of overlap: a save that lands while a read is in flight can carry an older timestamp
+  var since=full?0:Math.max(0,sync.since-60000);
+  return fetch(sheetUrl('key='+encodeURIComponent(sheet.key)+'&since='+since),{cache:'no-store'}).then(readJson).then(function(j){
+    if(!j.ok)throw new Error(j.error||'Sheet refused the request');
+    mergeDays(j.days);
+    if(j.config&&!sync.cfgPending){S.cfg=normCfg(j.config);LS.set('kl.cfg',S.cfg)}
+    sync.since=j.now||sync.since;LS.set('kl.since',sync.since);
+    if(!S.pending.length&&!sync.cfgPending)sync.state='ok';
+    saveBase();recompute();render();return j;
+  }).catch(function(e){sync.state='offline';sync.err=String(e&&e.message||e);render();throw e});
+}
+function scheduleFlush(ms){clearTimeout(flushT);flushT=setTimeout(flush,ms)}
+function flush(){
+  if(S.mode!=='sheet'||flushing)return;
+  if(!S.pending.length&&!sync.cfgPending){sync.state='ok';return}
+  flushing=true;sync.state='saving';render();
+  var batch=S.pending.slice(0,40),sentCfg=sync.cfgPending,body={key:sheet.key,ops:batch};
+  if(sentCfg)body.config=S.cfg;
+  fetch(sheet.url,{method:'POST',body:JSON.stringify(body)}).then(readJson).then(function(j){
+    if(!j.ok)throw new Error(j.error||'Sheet refused the save');
+    var ids={};batch.forEach(function(o){ids[o.id]=1});
+    S.pending=S.pending.filter(function(o){return!ids[o.id]});LS.set('kl.pending',S.pending);
+    if(sentCfg){sync.cfgPending=false;LS.set('kl.cfgPending',false)}
+    mergeDays(j.days);saveBase();
+    flushing=false;sync.state=S.pending.length?'saving':'ok';recompute();render();
+    if(S.pending.length)scheduleFlush(50);
+  }).catch(function(e){
+    flushing=false;sync.state='offline';sync.err=String(e&&e.message||e);render();scheduleFlush(15000);
+  });
+}
+function startPolling(){
+  clearInterval(pullT);
+  pullT=setInterval(function(){
+    if(S.mode!=='sheet'||document.visibilityState!=='visible')return;
+    if(sleeping&&Date.now()-(pull.last||0)<120000)return;
+    pull.last=Date.now();pull(false).catch(function(){});flush();
+  },30000);
+}
+function connectSheet(url,key){
+  url=url.trim();key=key.trim();
+  if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(url))return Promise.reject(new Error('That doesn\'t look like an Apps Script web app address. It should start with https://script.google.com/'));
+  if(!key)return Promise.reject(new Error('Enter the key from Kitchen League > Set up in your Google Sheet.'));
+  return fetch(url+(url.indexOf('?')<0?'?':'&')+'key='+encodeURIComponent(key)+'&since=0',{cache:'no-store'}).then(readJson).then(function(j){
+    if(!j.ok)throw new Error(j.error||'The sheet refused the key');
+    var local=S.days,hadLocal=Object.keys(local).filter(function(k){return dayActive(local[k])});
+    sheet={url:url,key:key};LS.set('kl.sheet',sheet);S.mode='sheet';
+    var remote=j.days||{};
+    S.pending=[];
+    hadLocal.forEach(function(k){if(!dayActive(remote[k]))S.pending.push({t:'import',id:uid(),ts:Date.now(),date:k,day:local[k]})});
+    LS.set('kl.pending',S.pending);var copied=S.pending.length;
+    S.base={};mergeDays(remote);
+    if(j.config){S.cfg=normCfg(j.config);LS.set('kl.cfg',S.cfg);sync.cfgPending=false}else{sync.cfgPending=true}
+    LS.set('kl.cfgPending',sync.cfgPending);
+    sync.since=j.now||0;LS.set('kl.since',sync.since);LS.set('kl.unpaired',null);
+    achQuiet=true;saveBase();recompute();render();startPolling();flush();
+    return copied;
+  });
+}
+function disconnectSheet(){
+  LS.set('kl.unpaired',sheet&&sheet.url);
+  sheet=null;LS.set('kl.sheet',null);S.mode='local';S.pending=[];LS.set('kl.pending',[]);clearInterval(pullT);
+  if(parsePair(location.href)){try{history.replaceState(null,'',location.href.split('#')[0])}catch(e){}}
+  S.base=clone(S.days);saveBase();recompute();render();
+}
+/* pairing link: index.html#sync=<web app address>&key=<key>. The hash never reaches the web host. */
+function pairLink(){return location.href.split('#')[0]+'#sync='+encodeURIComponent(sheet.url)+'&key='+encodeURIComponent(sheet.key)}
+function parsePair(s){
+  s=String(s||'');var i=s.indexOf('#');if(i<0)return null;
+  var q=new URLSearchParams(s.slice(i+1)),u=q.get('sync'),k=q.get('key');return u&&k?{url:u.trim(),key:k.trim()}:null;
+}
+function takePairLink(){
+  var link=parsePair(location.href);if(!link||inArtifact)return;
+  var standalone=navigator.standalone===true||!!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+  // In an iPad Safari tab keep the link in the address bar, so Add to Home Screen carries it into the Home Screen app
+  if(navigator.standalone!==false){try{history.replaceState(null,'',location.href.split('#')[0])}catch(e){}}
+  if(sheet&&sheet.url===link.url&&sheet.key===link.key)return;
+  // a Home Screen app relaunches with the link it was saved with, so respect an earlier Disconnect
+  if(standalone&&LS.get('kl.unpaired',null)===link.url)return;
+  var local=Object.keys(S.days).filter(function(k){return dayActive(S.days[k])}).length;
+  if((sheet||local)&&!confirm(sheet?'Switch this device to the Google Sheet in this link?':'Connect to the Google Sheet in this link? The '+pl(local,'day')+' of scores on this device will be copied into it.'))return;
+  connectSheet(link.url,link.key).then(function(n){
+    toast(navigator.standalone===false?'Connected. To keep it on the iPad, tap Share, then Add to Home Screen.':n?'Connected. Copying '+pl(n,'day')+' from this device into the sheet.':'Connected to your Google Sheet.',6000);
+  },function(err){toast(err&&err.message&&err.message.length<140?err.message:"That pairing link didn't work. Check the sheet is still deployed.",6000)});
+}
+var QR_SRC='https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js',QR_SRI='sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1',qrLib=null;
+function loadQr(){
+  if(!qrLib)qrLib=new Promise(function(res,rej){
+    var s=document.createElement('script');s.src=QR_SRC;s.integrity=QR_SRI;s.crossOrigin='anonymous';
+    s.onload=function(){window.qrcode?res(window.qrcode):rej()};s.onerror=function(){qrLib=null;s.remove();rej()};document.head.appendChild(s);
+  });
+  return qrLib;
+}
+function drawQr(){
+  loadQr().then(function(qrcode){
+    var el=document.getElementById('qr');if(!el||!sheet)return;
+    var q=qrcode(0,'M');q.addData(pairLink());q.make();el.innerHTML=q.createSvgTag({cellSize:4,margin:0,scalable:true,title:'Kitchen League pairing code'});
+  },function(){var el=document.getElementById('qr');if(el)el.innerHTML='<span>The code needs the internet. Use the link button instead.</span>'});
+}
+
+/* ---------- scoring helpers ---------- */
+function targetsFor(day,p,k){
+  if(k===todayKey()||!day||!day[p]||!day[p].tw)return S.cfg.targets[p];
+  return{water:day[p].tw,protein:day[p].tp};
+}
+function pscore(day,p,k){return scoreOf(day,p,targetsFor(day,p,k))}
+function weekStats(T){
+  var mon=mondayOf(T),r={a:0,b:0,wonA:0,wonB:0};
+  for(var i=0;i<7;i++){var k=addDays(mon,i);if(k>T)break;var d=S.days[k];if(!d)continue;
+    var sa=pscore(d,'a',k).total,sb=pscore(d,'b',k).total;r.a+=sa;r.b+=sb;
+    if(k<T&&dayActive(d)){if(sa>sb)r.wonA++;else if(sb>sa)r.wonB++}}
+  return r;
+}
+function allTime(T){
+  var cur=mondayOf(T),curYm=T.slice(0,7),wk={},mo={},r={wa:0,wb:0,ma:0,mb:0,pa:0,pb:0,lastWeek:null};
+  Object.keys(S.days).forEach(function(k){
+    var d=S.days[k];if(!dayActive(d))return;
+    var sa=pscore(d,'a',k).total,sb=pscore(d,'b',k).total;r.pa+=sa;r.pb+=sb;
+    var m=mondayOf(k);if(m<cur){wk[m]=wk[m]||{a:0,b:0};wk[m].a+=sa;wk[m].b+=sb}
+    var ym=k.slice(0,7);if(ym<curYm){mo[ym]=mo[ym]||{a:0,b:0};mo[ym].a+=sa;mo[ym].b+=sb}
+  });
+  var lw=addDays(cur,-7);
+  Object.keys(wk).forEach(function(m){var w=wk[m];if(w.a>w.b)r.wa++;else if(w.b>w.a)r.wb++;if(m===lw)r.lastWeek=w.a>w.b?'a':w.b>w.a?'b':'tie'});
+  Object.keys(mo).forEach(function(m){var w=mo[m];if(w.a>w.b)r.ma++;else if(w.b>w.a)r.mb++});
+  r.months=mo;return r;
+}
+function streak(p,T){
+  var n=0,k=T,s=pscore(S.days[k],p,k);if(!(s.hitW&&s.hitP))k=addDays(T,-1);
+  for(var i=0;i<1000;i++){var d=S.days[k];if(!d)break;s=pscore(d,p,k);if(s.hitW&&s.hitP){n++;k=addDays(k,-1)}else break}
+  return n;
+}
+function monthStats(ym,T){
+  var y=+ym.slice(0,4),m=+ym.slice(5,7),dim=new Date(y,m,0).getDate(),curYm=T.slice(0,7);
+  var last=ym===curYm?+T.slice(8,10):ym<curYm?dim:0;
+  var r={ym:ym,dim:dim,last:last,complete:ym<curYm,cum:{a:[],b:[]},tot:{a:0,b:0},won:{a:0,b:0},cn:{a:0,b:0},cp:{a:0,b:0},wd:{a:0,b:0},pd:{a:0,b:0},hp:{a:0,b:0},best:{a:null,b:null},streak:{a:0,b:0},top:{a:null,b:null},active:0};
+  var run={a:0,b:0},cnt={a:{},b:{}},names={};
+  S.cfg.chores.forEach(function(c){names[c.id]=c.name});
+  for(var i=1;i<=last;i++){
+    var k=ym+'-'+pad(i),d=S.days[k],act=dayActive(d);if(act)r.active++;
+    var sc={};
+    P.forEach(function(p){
+      var s=d?pscore(d,p,k):null;sc[p]=s?s.total:0;
+      r.tot[p]+=sc[p];r.cum[p].push(r.tot[p]);
+      if(s){r.cn[p]+=s.cn;r.cp[p]+=s.c;if(s.hitW)r.wd[p]++;if(s.hitP)r.pd[p]++;
+        if(s.hitW&&s.hitP){run[p]++;r.hp[p]++;if(run[p]>r.streak[p])r.streak[p]=run[p]}else if(k<T)run[p]=0;
+        if(act&&(!r.best[p]||s.total>r.best[p].pts))r.best[p]={pts:s.total,k:k};
+      }else if(k<T)run[p]=0;
+    });
+    if(d)Object.keys(d.chores).forEach(function(cid){var c=d.chores[cid];if(c&&c.by){var nm=c.name||names[cid]||cid;cnt[c.by][nm]=(cnt[c.by][nm]||0)+1}});
+    if(act&&k<T){if(sc.a>sc.b)r.won.a++;else if(sc.b>sc.a)r.won.b++}
+  }
+  P.forEach(function(p){var best=null;Object.keys(cnt[p]).forEach(function(nm){if(!best||cnt[p][nm]>best.n)best={nm:nm,n:cnt[p][nm]}});r.top[p]=best});
+  return r;
+}
+function initials(){
+  var a=(S.cfg.names.a.trim()||'A'),b=(S.cfg.names.b.trim()||'B'),ia=a[0].toUpperCase(),ib=b[0].toUpperCase();
+  if(ia===ib){ia=ia+(a[1]||'');ib=ib+(b[1]||'')}
+  return{a:ia,b:ib};
+}
+
+/* ---------- trophies: derived from day history, never stored, so every device and storage mode agrees ---------- */
+// max:true tracks measure a personal best (one day, one run) instead of a running total
+var TRACKS=[
+  {id:'water',icon:'💧',name:'Hydration',what:'Days hitting the water target',unit:'day',tiers:[[5,'Sipper'],[25,'Camel'],[100,'Fish']]},
+  {id:'protein',icon:'🥚',name:'Protein',what:'Days hitting the protein target',unit:'day',tiers:[[5,'Snacker'],[25,'Lifter'],[100,'Powerhouse']]},
+  {id:'streak',icon:'🔥',name:'Streak',what:'Days in a row hitting both targets',unit:'day',max:true,hint:function(n){return 'a '+n+'-day streak'},tiers:[[3,'On a Roll'],[7,'Iron Week'],[30,'Unbreakable']]},
+  {id:'chores',icon:'🧽',name:'Chores',what:'Chores done in total',unit:'chore',tiers:[[10,'Helping Hand'],[50,'House Hero'],[200,'Chore Machine']]},
+  {id:'busy',icon:'🐝',name:'Busy Day',what:'Most chores in one day',unit:'chore',max:true,hint:function(n){return 'a '+n+'-chore day'},tiers:[[3,'Busy Bee'],[5,'Whirlwind'],[8,'Tornado']]},
+  {id:'bigday',icon:'🚀',name:'Big Day',what:'Best score in one day',unit:'point',max:true,hint:function(n){return 'a '+n+'-point day'},tiers:[[50,'Half Century'],[75,'High Flyer'],[100,'Century']]},
+  {id:'wins',icon:'🥊',name:'Day Wins',what:'Days won',unit:'day',tiers:[[1,'Off the Mark'],[10,'Contender'],[50,'Heavyweight']]},
+  {id:'run',icon:'🎯',name:'Win Run',what:'Days won in a row',unit:'day',max:true,hint:function(n){return n+' wins in a row'},tiers:[[3,'Hat-trick'],[5,'High Five'],[7,'Perfect Week']]},
+  {id:'weeks',icon:'📅',name:'Weeks',what:'Weeks won',unit:'week',tiers:[[1,'Week Winner'],[4,'Regular'],[12,'Season Ticket']]},
+  {id:'months',icon:'👑',name:'Months',what:'Months won',unit:'month',tiers:[[1,'Champion'],[3,'Dynasty'],[12,'Legend']]},
+  {id:'early',icon:'🌅',name:'Early Bird',what:'Days with water logged before 8am',unit:'day',tiers:[[1,'Early Bird'],[10,'Sunrise Club'],[50,'Dawn Patrol']]}
+];
+var MEDAL=['bronze','silver','gold'];
+function pl(n,u){return fmt(n)+' '+u+(n===1?'':'s')}
+function trophyStats(T){
+  var at=allTime(T),st={},run={a:0,b:0},win={a:0,b:0},prev=null;
+  P.forEach(function(p){st[p]={water:0,protein:0,streak:0,chores:0,busy:0,bigday:0,wins:0,run:0,weeks:p==='a'?at.wa:at.wb,months:p==='a'?at.ma:at.mb,early:0}});
+  Object.keys(S.days).sort().forEach(function(k){
+    var d=S.days[k],act=dayActive(d),sc={};
+    if(prev&&addDays(prev,1)!==k){run={a:0,b:0};win={a:0,b:0}}
+    prev=k;
+    P.forEach(function(p){
+      var s=sc[p]=pscore(d,p,k),o=st[p];
+      if(s.hitW)o.water++;if(s.hitP)o.protein++;
+      if(s.hitW&&s.hitP){run[p]++;if(run[p]>o.streak)o.streak=run[p]}else run[p]=0;
+      o.chores+=s.cn;if(s.cn>o.busy)o.busy=s.cn;
+      if(act&&s.total>o.bigday)o.bigday=s.total;
+      if(d[p].log.some(function(e){return e&&e.k==='water'&&new Date(e.t).getHours()<8}))o.early++;
+    });
+    // only finished days can be won, same as the League tab
+    if(k>=T)return;
+    var w=act?(sc.a.total>sc.b.total?'a':sc.b.total>sc.a.total?'b':null):null;
+    P.forEach(function(p){if(p===w){st[p].wins++;win[p]++;if(win[p]>st[p].run)st[p].run=win[p]}else win[p]=0});
+  });
+  return st;
+}
+function trophies(T){
+  var st=trophyStats(T),out={a:[],b:[]};
+  P.forEach(function(p){TRACKS.forEach(function(tr){var v=st[p][tr.id],lvl=0;tr.tiers.forEach(function(t){if(v>=t[0])lvl++});out[p].push({tr:tr,v:v,lvl:lvl})})});
+  return out;
+}
+function earnedIds(list){var ids=[];list.forEach(function(x){for(var i=0;i<x.lvl;i++)ids.push(x.tr.id+':'+i)});return ids}
+// Celebrate trophies this device hasn't seen yet. After a bulk load (first run, connecting a sheet) record them quietly instead.
+var achSeen=LS.get('kl.ach',null),achQuiet=!achSeen,celebQ=[];
+function checkUnlocks(tro){
+  var seen=achSeen||{a:[],b:[]},fresh=[],quiet=achQuiet;achQuiet=false;
+  P.forEach(function(p){earnedIds(tro[p]).forEach(function(id){if(seen[p].indexOf(id)<0){seen[p].push(id);fresh.push({p:p,id:id})}})});
+  if(!achSeen||fresh.length){achSeen=seen;LS.set('kl.ach',achSeen)}
+  if(fresh.length&&!quiet&&fresh.length<=4)celebrate(fresh);
+}
+function celebrate(list){
+  if(sleeping){celebQ=celebQ.concat(list);return}
+  var N=S.cfg.names,msgs=[],who={};
+  list.forEach(function(x){
+    var id=x.id.split(':'),lvl=+id[1],tr=TRACKS.filter(function(t){return t.id===id[0]})[0];if(!tr)return;
+    msgs.push(tr.icon+' '+N[x.p]+' unlocked '+tr.tiers[lvl][1]+' ('+MEDAL[lvl]+')');who[x.p]=1;
+  });
+  if(!msgs.length)return;
+  Object.keys(who).forEach(function(p){setReact(p,'party',4200)});
+  // runs after the tap's own toast ("+5 bonus"), so the unlock isn't overwritten; keep that text if it only just appeared
+  setTimeout(function(){var just=!toastEl.hidden&&Date.now()-(toast.at||0)<200?toastEl.textContent+'   ':'';toast(just+msgs.join('   '),5200)},0);
+  confetti();
+}
+function confetti(){
+  if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  var box=document.createElement('div'),cols=['var(--a)','var(--b)','var(--gold)','var(--good)',PINK],h='';
+  box.className='confetti';box.setAttribute('aria-hidden','true');
+  for(var i=0;i<40;i++)h+='<i style="left:'+(Math.random()*100).toFixed(1)+'%;background:'+cols[i%cols.length]+';--dx:'+Math.round(Math.random()*160-80)+'px;--rot:'+Math.round(Math.random()*720-360)+'deg;animation-delay:'+(Math.random()*.5).toFixed(2)+'s"></i>';
+  box.innerHTML=h;document.body.appendChild(box);setTimeout(function(){box.remove()},3200);
+}
+function nextUp(list){
+  var best=null;
+  list.forEach(function(x){if(x.lvl>=3)return;var need=x.tr.tiers[x.lvl][0],f=(need-x.v)/need;if(!best||f<best.f)best={x:x,need:need,f:f}});
+  return best;
+}
+function nextText(p,b){
+  var N=esc(S.cfg.names[p]);if(!b)return N+' has every trophy. Legend.';
+  var tr=b.x.tr;
+  return N+' needs '+(tr.hint?tr.hint(b.need):pl(b.need-b.x.v,'more '+tr.unit))+' for '+tr.tiers[b.x.lvl][1]+'.';
+}
+
+/* ---------- avatars ---------- */
+var LOOK={
+  a:{skin:'#A96B46',shade:'#8C5233',hair:'#1E1916',brow:'#1E1916',iris:'#2E1B10',mouthY:93},
+  b:{skin:'#F4D4C0',shade:'#E3B49B',hair:'#E3C47C',hairD:'#C7A45A',brow:'#A9864F',iris:'#3F7FC4',mouthY:89}
+};
+var DARK='#3A1C17',PINK='#F07B7B',TEAR='#6CC4F5',SICK='#9CCB4E',SHADES='#15171C',GOLD='#F5C542';
+var MOOD_TXT={cry:'Parched and sobbing',sad:'Wilting a bit',meh:'Getting by',happy:'Feeling good',laugh:'Absolutely thriving',shock:'Robbed!',champ:'Champion',chase:'Chasing',rematch:'Demands a rematch',lead:'Leading',sleep:'Asleep',yawn:'Still waking up',smug:'Too smooth',party:'Party time'};
+function moodFor(total){return total<=0?(new Date().getHours()<10?'yawn':'cry'):total<15?'sad':total<35?'meh':total<60?'happy':'laugh'}
+var react={a:null,b:null},FACE_REACT={shock:1,smug:1,party:1};
+function setReact(p,type,ms){react[p]={type:type,until:Date.now()+ms};setTimeout(function(){render()},ms+30)}
+function liveMood(p,base){var r=react[p];if(r&&FACE_REACT[r.type]&&Date.now()<r.until)return r.type;return base}
+function star(x,y,r,fill,cls){var q=r*2/7;return '<path class="spark '+cls+'" d="M'+x+' '+(y-r)+' L'+(x+q)+' '+(y-q)+' L'+(x+r)+' '+y+' L'+(x+q)+' '+(y+q)+' L'+x+' '+(y+r)+' L'+(x-q)+' '+(y+q)+' L'+(x-r)+' '+y+' L'+(x-q)+' '+(y-q)+' Z" fill="'+fill+'"/>'}
+function avatar(p,mood,extraCls){
+  var L=LOOK[p],my=L.mouthY,s='<svg viewBox="0 0 120 130" aria-hidden="true"><circle class="bgc '+p+'" cx="60" cy="68" r="58"/><g class="face">';
+  // back hair, ears, head
+  if(p==='b'){s+='<ellipse cx="60" cy="58" rx="39" ry="37" fill="'+L.hair+'"/><circle cx="60" cy="19" r="14" fill="'+L.hair+'" stroke="'+L.hairD+'" stroke-width="2"/><path d="M50 18 Q60 10 70 18" stroke="'+L.hairD+'" stroke-width="2" fill="none"/>'}
+  s+='<ellipse cx="'+(p==='a'?25:28)+'" cy="68" rx="6" ry="9" fill="'+L.skin+'"/><ellipse cx="'+(p==='a'?95:92)+'" cy="68" rx="6" ry="9" fill="'+L.skin+'"/>';
+  s+='<ellipse cx="60" cy="'+(p==='a'?66:68)+'" rx="'+(p==='a'?34:32)+'" ry="'+(p==='a'?40:38)+'" fill="'+L.skin+'"/>';
+  if(mood==='cry'||mood==='sad')s+='<ellipse cx="60" cy="'+(p==='a'?66:68)+'" rx="'+(p==='a'?34:32)+'" ry="'+(p==='a'?40:38)+'" fill="'+SICK+'" opacity="'+(mood==='cry'?.28:.15)+'"/>';
+  if(p==='a'){
+    s+='<path d="M26 60 C23 31 41 21 60 21 C80 21 98 31 94 60 C91 47 85 40 75 38 C65 44 47 44 37 40 C31 44 28 51 26 60 Z" fill="'+L.hair+'"/>';
+    s+='<path d="M27 70 C28 94 42 110 60 110 C78 110 92 94 93 70 C90 81 86 87 80 89 C74 85 66 84 60 84 C54 84 46 85 40 89 C34 87 30 81 27 70 Z" fill="'+L.hair+'"/>';
+  }else{
+    s+='<path d="M27 64 C25 39 43 29 62 30 C81 30 95 43 93 64 C87 49 77 42 64 42 C54 49 40 51 27 64 Z" fill="'+L.hair+'"/>';
+    s+='<path d="M28 60 C24 76 27 90 31 98 C29 84 30 72 33 62 Z" fill="'+L.hair+'"/>';
+    [[40,80],[44,83],[37,84],[80,80],[76,83],[83,84]].forEach(function(f){s+='<circle cx="'+f[0]+'" cy="'+f[1]+'" r="1.1" fill="'+L.shade+'"/>'});
+  }
+  // cheeks
+  var big=mood==='laugh'||mood==='party';
+  if(mood==='happy'||mood==='laugh'||mood==='champ'||mood==='lead'||mood==='party')s+='<ellipse cx="38" cy="78" rx="7" ry="4.5" fill="'+PINK+'" opacity="'+(big?.55:.35)+'"/><ellipse cx="82" cy="78" rx="7" ry="4.5" fill="'+PINK+'" opacity="'+(big?.55:.35)+'"/>';
+  // brows
+  var bw=p==='a'?5:3,br;
+  if(mood==='sad'||mood==='cry'||mood==='chase'||mood==='rematch')br=[[39,55,53,49],[81,55,67,49]];
+  else if(mood==='shock')br=[[39,46,53,44],[81,46,67,44]];
+  else if(mood==='smug')br=[[39,48,53,44],[81,53,67,52]];
+  else if(mood==='meh'||mood==='sleep'||mood==='yawn')br=[[39,54,53,54],[81,54,67,54]];
+  else br=[[39,51,53,49],[81,51,67,49]];
+  br.forEach(function(b){s+='<line x1="'+b[0]+'" y1="'+b[1]+'" x2="'+b[2]+'" y2="'+b[3]+'" stroke="'+L.brow+'" stroke-width="'+bw+'" stroke-linecap="round"/>'});
+  // eyes
+  var e='';
+  if(mood==='cry')e='<path d="M41 60 L50 64 L41 68" stroke="'+DARK+'" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M79 60 L70 64 L79 68" stroke="'+DARK+'" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+  else if(mood==='laugh'||mood==='champ'||mood==='party')e='<path d="M41 66 Q47 56 53 66" stroke="'+DARK+'" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M67 66 Q73 56 79 66" stroke="'+DARK+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>';
+  else if(mood==='sleep'||mood==='yawn')e='<path d="M41 64 Q47 69 53 64" stroke="'+DARK+'" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M67 64 Q73 69 79 64" stroke="'+DARK+'" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
+  else if(mood==='smug')e='<path d="M36 60 L26 57 M84 60 L94 57" stroke="'+SHADES+'" stroke-width="2.5" stroke-linecap="round"/><rect x="35" y="56" width="22" height="14" rx="6" fill="'+SHADES+'"/><rect x="63" y="56" width="22" height="14" rx="6" fill="'+SHADES+'"/><path d="M57 61 Q60 58 63 61" stroke="'+SHADES+'" stroke-width="3" fill="none"/><path d="M39 60 L46 60 M67 60 L74 60" stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/>';
+  else if(mood==='shock')e='<circle cx="47" cy="63" r="7.5" fill="#fff" stroke="'+DARK+'" stroke-width="1.5"/><circle cx="73" cy="63" r="7.5" fill="#fff" stroke="'+DARK+'" stroke-width="1.5"/><circle cx="47" cy="63" r="2.6" fill="'+DARK+'"/><circle cx="73" cy="63" r="2.6" fill="'+DARK+'"/>';
+  else{
+    e='<g class="eyes"><circle cx="47" cy="64" r="4" fill="'+L.iris+'"/><circle cx="73" cy="64" r="4" fill="'+L.iris+'"/><circle cx="48.4" cy="62.6" r="1.3" fill="#fff"/><circle cx="74.4" cy="62.6" r="1.3" fill="#fff"/></g>';
+    if(mood==='meh'||mood==='rematch')e+='<path d="M41 61 L53 61" stroke="'+L.skin+'" stroke-width="5"/><path d="M67 61 L79 61" stroke="'+L.skin+'" stroke-width="5"/><path d="M41 63 L53 63" stroke="'+DARK+'" stroke-width="1.6" stroke-linecap="round"/><path d="M67 63 L79 63" stroke="'+DARK+'" stroke-width="1.6" stroke-linecap="round"/>';
+    if(mood==='sad'||mood==='chase')e+='<path d="M42 71 Q47 74 52 71" stroke="'+L.shade+'" stroke-width="1.8" fill="none"/><path d="M68 71 Q73 74 78 71" stroke="'+L.shade+'" stroke-width="1.8" fill="none"/>';
+  }
+  s+=e;
+  // moustache for a
+  if(p==='a')s+='<path d="M44 '+(my-8)+' C50 '+(my-13)+' 56 '+(my-12)+' 60 '+(my-10)+' C64 '+(my-12)+' 70 '+(my-13)+' 76 '+(my-8)+' C70 '+(my-8)+' 64 '+(my-7)+' 60 '+(my-6)+' C56 '+(my-7)+' 50 '+(my-8)+' 44 '+(my-8)+' Z" fill="'+L.hair+'"/>';
+  // mouth
+  var y=my;
+  if(mood==='cry')s+='<path d="M45 '+(y+7)+' Q60 '+(y-9)+' 75 '+(y+7)+' Q60 '+(y+13)+' 45 '+(y+7)+' Z" fill="'+DARK+'"/><ellipse cx="60" cy="'+(y+8)+'" rx="6" ry="2.6" fill="'+PINK+'"/>';
+  else if(mood==='sad'||mood==='chase')s+='<path d="M50 '+(y+4)+' Q60 '+(y-4)+' 70 '+(y+4)+'" stroke="'+DARK+'" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  else if(mood==='meh'||mood==='rematch')s+='<path d="M52 '+y+' L68 '+(y+1.5)+'" stroke="'+DARK+'" stroke-width="3" stroke-linecap="round"/>';
+  else if(mood==='happy'||mood==='lead')s+='<path d="M48 '+(y-2)+' Q60 '+(y+10)+' 72 '+(y-2)+'" stroke="'+DARK+'" stroke-width="3" fill="'+(p==='a'?'none':'none')+'" stroke-linecap="round"/>';
+  else if(mood==='laugh'||mood==='champ'||mood==='party')s+='<path d="M44 '+(y-4)+' L76 '+(y-4)+' Q74 '+(y+15)+' 60 '+(y+15)+' Q46 '+(y+15)+' 44 '+(y-4)+' Z" fill="'+DARK+'"/><path d="M46 '+(y-4)+' L74 '+(y-4)+' L73 '+(y+1)+' L47 '+(y+1)+' Z" fill="#fff"/><ellipse cx="60" cy="'+(y+10)+'" rx="7" ry="3.4" fill="'+PINK+'"/>';
+  else if(mood==='shock')s+='<ellipse cx="60" cy="'+(y+2)+'" rx="5.5" ry="7.5" fill="'+DARK+'"/>';
+  else if(mood==='sleep')s+='<circle cx="60" cy="'+(y+1)+'" r="2.6" fill="'+DARK+'"/>';
+  else if(mood==='yawn')s+='<ellipse cx="60" cy="'+(y+4)+'" rx="7" ry="10" fill="'+DARK+'"/><ellipse cx="60" cy="'+(y+10)+'" rx="4.5" ry="2.6" fill="'+PINK+'"/>';
+  else if(mood==='smug')s+='<path d="M49 '+(y+2)+' Q61 '+(y+6)+' 72 '+(y-3)+'" stroke="'+DARK+'" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  // extras
+  if(mood==='cry'){['t1','t2','t3'].forEach(function(t){s+='<path class="tear '+t+'" d="M43 69 q-3.5 6 0 8.5 q3.5 -2.5 0 -8.5Z" fill="'+TEAR+'"/><path class="tear '+t+'" d="M77 69 q-3.5 6 0 8.5 q3.5 -2.5 0 -8.5Z" fill="'+TEAR+'"/>'})}
+  if(mood==='sad'||mood==='shock'||mood==='chase')s+='<path class="sweat" d="M88 40 q-4 7 0 9.5 q4 -2.5 0 -9.5Z" fill="'+TEAR+'"/>';
+  if(mood==='laugh'||mood==='champ'){
+    s+='<path class="joy l" d="M40 66 q-3 5 0 7 q3 -2 0 -7Z" fill="'+TEAR+'"/><path class="joy r" d="M80 66 q-3 5 0 7 q3 -2 0 -7Z" fill="'+TEAR+'"/><path class="joy l d2" d="M40 66 q-3 5 0 7 q3 -2 0 -7Z" fill="'+TEAR+'"/><path class="joy r d2" d="M80 66 q-3 5 0 7 q3 -2 0 -7Z" fill="'+TEAR+'"/>';
+  }
+  if(mood==='smug')s+=star(44,58,4,'#fff','s1');
+  // party hat sits on the head, so it rocks with the face
+  if(mood==='party'){var hy=p==='b'?-8:0;
+    s+='<g transform="translate(0 '+hy+') rotate(-12 60 26)"><path d="M45 28 L60 -8 L75 28 Z" fill="#8E6CF0"/><circle cx="55" cy="18" r="2.4" fill="'+GOLD+'"/><circle cx="64" cy="10" r="2.2" fill="#fff"/><circle cx="63" cy="22" r="2.4" fill="#4CD08A"/><circle cx="59" cy="4" r="1.8" fill="'+PINK+'"/><path d="M45 28 Q60 33 75 28" stroke="#6A4BD1" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="60" cy="-9" r="5" fill="'+GOLD+'"/></g>';
+  }
+  s+='</g>';
+  if(mood==='laugh'||mood==='champ'){[[12,30,'s1'],[104,24,'s2'],[108,92,'s3']].forEach(function(k){s+=star(k[0],k[1],7,GOLD,k[2])})}
+  if(mood==='party'){[[10,44,GOLD,20,'s1'],[108,34,'#4CD08A',-25,'s2'],[106,96,'#FF875C',35,'s3'],[14,100,'#7894FF',-15,'s2'],[100,8,PINK,10,'s3']].forEach(function(c){s+='<g transform="rotate('+c[3]+' '+c[0]+' '+c[1]+')"><rect class="spark '+c[4]+'" x="'+(c[0]-3)+'" y="'+(c[1]-5)+'" width="6" height="10" rx="1.5" fill="'+c[2]+'"/></g>'})}
+  if(mood==='champ')s+='<path d="M40 12 L46 0 L53 9 L60 -4 L67 9 L74 0 L80 12 Z" fill="#F5C542" stroke="#C99A1E" stroke-width="1.5"/>';
+  if(mood==='sleep')s+='<text class="zz" x="92" y="34" font-size="14" fill="currentColor">z</text><text class="zz z2" x="98" y="26" font-size="18" fill="currentColor">z</text><text class="zz z3" x="104" y="16" font-size="22" fill="currentColor">Z</text>';
+  if(mood==='yawn')s+='<text class="zz" x="96" y="30" font-size="14" fill="currentColor">z</text>';
+  s+='</svg>';
+  var anim=mood==='champ'?'laugh':mood==='lead'?'happy':mood==='chase'?'sad':mood==='rematch'?'meh':mood;
+  var r=react[p],pop=r&&r.type==='pop'&&Date.now()<r.until?' pop':'';
+  return '<div class="av m-'+anim+pop+(extraCls?' '+extraCls:'')+'">'+s+'</div>';
+}
+
+/* ---------- render ---------- */
+var app=document.getElementById('app');
+function topbar(T){
+  var d=dateOf(T),dateLabel=d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  var mOn=dev.motion&&cam.stream,syncChip='';
+  if(S.mode==='sheet'){
+    var n=S.pending.length,st=sync.state==='offline'?'warn':sync.state==='saving'?'':'on';
+    var label=sync.state==='offline'?'Offline'+(n?', '+n+' waiting':''):sync.state==='saving'?'Saving'+(n?' '+n:''):'Synced to Drive';
+    syncChip='<button class="chip '+st+'" data-act="syncnow"><span class="dot"></span>'+label+'</button>';
+  }
+  return '<header class="top"><div class="brand">Kitchen League</div>'+
+    '<div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="'+(S.view==='today')+'" data-act="view" data-v="today">Today</button><button class="tab" role="tab" aria-selected="'+(S.view==='league')+'" data-act="view" data-v="league">League</button><button class="tab" role="tab" aria-selected="'+(S.view==='trophies')+'" data-act="view" data-v="trophies">Trophies</button></div>'+
+    '<div class="tmeta">'+dateLabel+'</div>'+
+    '<div class="tact">'+syncChip+'<button class="chip'+(mOn?' on':'')+'" data-act="motion"><span class="dot"></span>'+(mOn?'Motion wake on':'Motion wake off')+'</button>'+
+    '<button class="chip" data-act="sleep">Sleep</button><button class="chip" data-act="settings">Settings</button></div></header>';
+}
+function leadLine(s,day){
+  var N=S.cfg.names,ch=(day&&day.chores)||{};
+  if(s.a.total===0&&s.b.total===0)return 'New day, level scores. First glass of water takes the lead.';
+  var open=S.cfg.chores.filter(function(c){return!ch[c.id]}).sort(function(x,y){return y.pts-x.pts})[0];
+  if(s.a.total===s.b.total)return 'All square on '+s.a.total+'. '+(open?'"'+esc(open.name)+'" (+'+open.pts+') breaks the tie.':'Next sip of water breaks the tie.');
+  var lead=s.a.total>s.b.total?'a':'b',trail=lead==='a'?'b':'a',gap=Math.abs(s.a.total-s.b.total);
+  var line=esc(N[lead])+' leads by '+gap+'. ';
+  if(open)line+=esc(N[trail])+', "'+esc(open.name)+'" is worth +'+open.pts+(open.pts>gap?' and puts you ahead.':open.pts===gap?' and levels it.':'.');
+  else if(!s[trail].hitW)line+=esc(N[trail])+', chores are gone, so drink up.';
+  else if(!s[trail].hitP)line+=esc(N[trail])+', chores are gone, so it comes down to protein.';
+  else line+='Everything is claimed. Good game.';
+  return line;
+}
+function meter(p,kind,s){
+  var isW=kind==='water',val=isW?s.water:s.protein,tgt=isW?s.t.water:s.t.protein,hit=isW?s.hitW:s.hitP;
+  var pct=Math.min(100,Math.round(val/tgt*100)),shown=isW?(val/1000).toFixed(2).replace(/0$/,''):Math.round(val);
+  var amts=isW?[250,500]:[10,20,30];
+  return '<div class="meter"><div class="mrow"><span class="mlabel">'+(isW?'Water':'Protein')+'</span>'+(hit?'<span class="goal">Goal hit, +5</span>':'')+
+    '<span class="mval"><b>'+shown+'</b> / '+(isW?(tgt/1000).toFixed(1)+' L':tgt+' g')+'</span></div>'+
+    '<div class="track" role="progressbar" aria-valuenow="'+pct+'" aria-valuemin="0" aria-valuemax="100" aria-label="'+(isW?'Water':'Protein')+' progress"><div class="fill" style="width:'+pct+'%"></div></div>'+
+    '<div class="btns">'+amts.map(function(a){return '<button class="btn" data-act="add" data-p="'+p+'" data-k="'+kind+'" data-amt="'+a+'">+'+a+(isW?' ml':' g')+'</button>'}).join('')+'</div></div>';
+}
+function renderToday(T){
+  var cfg=S.cfg,N=cfg.names,day=S.days[T],s={a:pscore(day,'a',T),b:pscore(day,'b',T)},wk=weekStats(T),ms=monthStats(T.slice(0,7),T),ini=initials();
+  var mName=MONTHS[+T.slice(5,7)-1];
+  var mo={a:liveMood('a',moodFor(s.a.total)),b:liveMood('b',moodFor(s.b.total))};
+  var html='<section class="board" aria-label="Today\'s score">'+
+    '<div class="side a'+(s.a.total<s.b.total?' lead-off':'')+'">'+avatar('a',mo.a)+'<div class="stext"><span class="sname">'+esc(N.a)+'</span><span class="snum">'+s.a.total+'</span><span class="mood">'+MOOD_TXT[mo.a]+'</span><span class="ssub">Week '+fmt(wk.a)+' · '+mName+' '+fmt(ms.tot.a)+'</span></div></div>'+
+    '<div class="mid"><span class="eyebrow">Today</span><span class="vs">VS</span><span class="eyebrow">Days won this week '+wk.wonA+'–'+wk.wonB+'</span></div>'+
+    '<div class="side b'+(s.b.total<s.a.total?' lead-off':'')+'">'+avatar('b',mo.b)+'<div class="stext"><span class="sname">'+esc(N.b)+'</span><span class="snum">'+s.b.total+'</span><span class="mood">'+MOOD_TXT[mo.b]+'</span><span class="ssub">Week '+fmt(wk.b)+' · '+mName+' '+fmt(ms.tot.b)+'</span></div></div>'+
+    '<p class="leadline">'+leadLine(s,day)+'</p></section><main class="grid">';
+  function panel(p){
+    var sc=s[p],st=streak(p,T),canUndo=day&&day[p]&&day[p].log.length>0;
+    return '<section class="panel player p-'+p+'" style="grid-area:'+p+'" aria-label="'+esc(N[p])+'">'+
+      '<header class="phead"><span class="pname">'+esc(N[p])+'</span><span class="pstreak">'+(st>0?st+'-day streak':'No streak yet')+'</span></header>'+
+      meter(p,'water',sc)+meter(p,'protein',sc)+
+      '<footer class="pfoot"><span class="breakdown">Water <b>'+sc.w+'</b> · Protein <b>'+sc.pr+'</b> · Chores <b>'+sc.c+'</b></span>'+
+      '<button class="link" data-act="undo" data-p="'+p+'"'+(canUndo?'':' disabled')+'>Undo</button></footer></section>';
+  }
+  var ch=(day&&day.chores)||{},done=cfg.chores.filter(function(c){return ch[c.id]}).length;
+  html+=panel('a')+'<section class="panel chores" style="grid-area:chores" aria-label="Chores"><header class="chead"><h2>Chores today</h2><span>'+done+' of '+cfg.chores.length+' claimed</span></header>';
+  if(!cfg.chores.length)html+='<p class="cempty">No chores set up. Add some in Settings.</p>';
+  else html+='<ul class="clist">'+cfg.chores.map(function(c){
+    var by=ch[c.id]&&ch[c.id].by;
+    return '<li class="crow'+(by?' by-'+by:'')+'">'+
+      '<button class="claim a'+(by==='a'?' on':'')+'" data-act="claim" data-id="'+esc(c.id)+'" data-p="a" aria-pressed="'+(by==='a')+'" aria-label="'+esc(N.a)+' did '+esc(c.name)+'">'+esc(ini.a)+'</button>'+
+      '<div class="cname"><span class="t">'+esc(c.name)+'</span><span class="m">'+(by?esc(N[by])+' · +'+(ch[c.id].pts||c.pts):'+'+c.pts+' pts')+'</span></div>'+
+      '<button class="claim b'+(by==='b'?' on':'')+'" data-act="claim" data-id="'+esc(c.id)+'" data-p="b" aria-pressed="'+(by==='b')+'" aria-label="'+esc(N.b)+' did '+esc(c.name)+'">'+esc(ini.b)+'</button></li>';
+  }).join('')+'</ul>';
+  html+='</section>'+panel('b')+'</main><p class="rules">Tap your initial on a chore when you finish it. Water and protein score up to 15 points each by how close you get to your own target, plus 5 for hitting it. Highest total wins the day. Weeks start on Monday, and the League tab keeps the monthly table.</p>';
+  return html;
+}
+function niceStep(raw){var p=Math.pow(10,Math.floor(Math.log10(raw))),n=raw/p;return(n<=1?1:n<=2?2:n<=5?5:10)*p}
+function raceSvg(ms){
+  var W=660,H=260,L=46,R=64,Tp=16,B=32;
+  if(!ms.last||(ms.tot.a===0&&ms.tot.b===0))return '<svg viewBox="0 0 '+W+' 120" role="img" aria-label="No points yet"><text class="empty" x="'+W/2+'" y="64" text-anchor="middle">No points yet this month. The first glass of water starts the race.</text></svg>';
+  var max=Math.max(ms.tot.a,ms.tot.b,10),step=niceStep(max/4),top=Math.ceil(max/step)*step;
+  function x(i){return L+(ms.dim===1?0:(i-1)/(ms.dim-1))*(W-L-R)}
+  function y(v){return Tp+(1-v/top)*(H-Tp-B)}
+  var s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Running points total for each player across '+ymLabel(ms.ym)+'">';
+  for(var v=0;v<=top+0.001;v+=step)s+='<line class="gl" x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'"/><text x="'+(L-8)+'" y="'+(y(v)+4).toFixed(1)+'" text-anchor="end">'+fmt(v)+'</text>';
+  [1,8,15,22,29].filter(function(d){return d<=ms.dim}).forEach(function(d){s+='<text x="'+x(d).toFixed(1)+'" y="'+(H-10)+'" text-anchor="middle">'+d+'</text>'});
+  var ends={};
+  P.forEach(function(p){
+    var pts=ms.cum[p].map(function(v,i){return x(i+1).toFixed(1)+','+y(v).toFixed(1)});
+    if(pts.length===1)pts.unshift(x(1).toFixed(1)+','+y(0).toFixed(1));
+    s+='<polygon class="ar '+p+'" points="'+x(1).toFixed(1)+','+y(0).toFixed(1)+' '+pts.join(' ')+' '+x(ms.last).toFixed(1)+','+y(0).toFixed(1)+'"/>';
+    s+='<polyline class="ln '+p+'" points="'+pts.join(' ')+'"/>';
+    ends[p]={x:x(ms.last),y:y(ms.tot[p])};
+  });
+  var ya=ends.a.y,yb=ends.b.y;
+  if(Math.abs(ya-yb)<16){var mid=(ya+yb)/2,up=ms.tot.a>=ms.tot.b?'a':'b';if(up==='a'){ya=mid-9;yb=mid+9}else{yb=mid-9;ya=mid+9}}
+  P.forEach(function(p){var e=ends[p],ly=p==='a'?ya:yb;
+    s+='<circle class="dt '+p+'" cx="'+e.x.toFixed(1)+'" cy="'+e.y.toFixed(1)+'" r="5"/><text class="v'+p+'" x="'+(e.x+10).toFixed(1)+'" y="'+(ly+5).toFixed(1)+'">'+fmt(ms.tot[p])+'</text>'});
+  return s+'</svg>';
+}
+function renderLeague(T){
+  var N=S.cfg.names,ym=S.month,curYm=T.slice(0,7),ms=monthStats(ym,T),at=allTime(T);
+  var earliest=Object.keys(S.days).filter(function(k){return dayActive(S.days[k])}).sort()[0];
+  var minYm=earliest?earliest.slice(0,7):curYm;
+  var lead=ms.tot.a>ms.tot.b?'a':ms.tot.b>ms.tot.a?'b':null,gap=Math.abs(ms.tot.a-ms.tot.b);
+  var left=ms.dim-ms.last,status,line;
+  if(ym>curYm){status='Not started';line='This month hasn\'t started yet.'}
+  else if(ms.complete){status='Final';line=lead?esc(N[lead])+' won '+MONTHS[+ym.slice(5,7)-1]+' by '+fmt(gap)+' points.':(ms.active?'A dead heat. Nobody takes the month.':'No games played this month.')}
+  else{status=left===0?'Last day':left+' day'+(left===1?'':'s')+' to go';line=lead?esc(N[lead])+' leads '+MONTHS[+ym.slice(5,7)-1]+' by '+fmt(gap)+(left?' with '+left+' day'+(left===1?'':'s')+' left.':' on the final day.'):'Level pegging so far this month.'}
+  var html='<div class="mnav"><button class="arrow" data-act="month" data-d="-1" aria-label="Previous month"'+(ym<=minYm?' disabled':'')+'>‹</button>'+
+    '<h1>'+ymLabel(ym)+'</h1><button class="arrow" data-act="month" data-d="1" aria-label="Next month"'+(ym>=curYm?' disabled':'')+'>›</button>'+
+    '<span class="pill'+(ms.complete&&lead?' '+lead:'')+'">'+(ms.complete&&lead?esc(N[lead])+' is champion':status)+'</span></div>';
+  function mm(p){
+    if(!lead)return 'meh';
+    if(p===lead)return ms.complete?'champ':gap>=50?'laugh':'lead';
+    return ms.complete?'rematch':gap>=50?'cry':'chase';
+  }
+  var lm={a:mm('a'),b:mm('b')},lt=function(m){return m==='laugh'?'Running away with it':m==='cry'?'Way behind':MOOD_TXT[m]==='Getting by'?'Neck and neck':MOOD_TXT[m]};
+  html+='<section class="board" aria-label="Month score">'+
+    '<div class="side a'+(lead==='b'?' lead-off':'')+'">'+avatar('a',lm.a)+'<div class="stext"><span class="sname">'+esc(N.a)+'</span><span class="snum">'+fmt(ms.tot.a)+'</span><span class="mood">'+lt(lm.a)+'</span><span class="ssub">'+ms.won.a+' day'+(ms.won.a===1?'':'s')+' won</span></div></div>'+
+    '<div class="mid"><span class="eyebrow">Month</span><span class="vs">VS</span><span class="eyebrow">'+ms.active+' day'+(ms.active===1?'':'s')+' played</span></div>'+
+    '<div class="side b'+(lead==='a'?' lead-off':'')+'">'+avatar('b',lm.b)+'<div class="stext"><span class="sname">'+esc(N.b)+'</span><span class="snum">'+fmt(ms.tot.b)+'</span><span class="mood">'+lt(lm.b)+'</span><span class="ssub">'+ms.won.b+' day'+(ms.won.b===1?'':'s')+' won</span></div></div>'+
+    '<p class="leadline">'+line+'</p></section>';
+  function row(label,va,vb,na,nb,small){
+    var wa=na>nb,wb=nb>na;
+    return '<tr><td>'+label+'</td><td class="a'+(wa?' win a':'')+(small?' sm':'')+'">'+va+'</td><td class="b'+(wb?' win b':'')+(small?' sm':'')+'">'+vb+'</td></tr>';
+  }
+  function dd(n){return n+' day'+(n===1?'':'s')}
+  function best(p){var b=ms.best[p];return b?b.pts+' <span style="color:var(--muted);font-weight:500">('+dateOf(b.k).getDate()+' '+MONTHS[+ym.slice(5,7)-1].slice(0,3)+')</span>':'–'}
+  function top(p){var t=ms.top[p];return t?esc(t.nm)+' <span style="color:var(--muted);font-weight:500">×'+t.n+'</span>':'–'}
+  html+='<div class="lgrid"><section class="panel"><div class="lhead"><h2>The race</h2><p>Running points total, day by day</p></div><div class="chart">'+raceSvg(ms)+'</div>'+
+    '<div class="legend"><span class="a"><i></i>'+esc(N.a)+'</span><span class="b"><i></i>'+esc(N.b)+'</span></div></section>';
+  html+='<section class="panel"><div class="lhead"><h2>Head to head</h2><p>'+ymLabel(ym)+'</p></div><div class="tw"><table class="h2h"><thead><tr><th></th><th class="a">'+esc(N.a)+'</th><th class="b">'+esc(N.b)+'</th></tr></thead><tbody>'+
+    row('Points',fmt(ms.tot.a),fmt(ms.tot.b),ms.tot.a,ms.tot.b)+
+    row('Days won',ms.won.a,ms.won.b,ms.won.a,ms.won.b)+
+    row('Chores done',ms.cn.a,ms.cn.b,ms.cn.a,ms.cn.b)+
+    row('Chore points',fmt(ms.cp.a),fmt(ms.cp.b),ms.cp.a,ms.cp.b)+
+    row('Water goal hit',dd(ms.wd.a),dd(ms.wd.b),ms.wd.a,ms.wd.b)+
+    row('Protein goal hit',dd(ms.pd.a),dd(ms.pd.b),ms.pd.a,ms.pd.b)+
+    row('Longest streak',dd(ms.streak.a),dd(ms.streak.b),ms.streak.a,ms.streak.b)+
+    row('Best day',best('a'),best('b'),ms.best.a?ms.best.a.pts:0,ms.best.b?ms.best.b.pts:0)+
+    row('Most done chore',top('a'),top('b'),0,0,true)+
+    '</tbody></table></div></section></div>';
+  var past=Object.keys(at.months).sort().reverse();
+  html+='<section class="panel"><div class="lhead"><h2>Hall of fame</h2><p>Every finished week and month so far</p></div>'+
+    '<div class="fame"><div><span class="k">Months won</span><span class="v"><span class="a">'+at.ma+'</span><span class="s">–</span><span class="b">'+at.mb+'</span></span></div>'+
+    '<div><span class="k">Weeks won</span><span class="v"><span class="a">'+at.wa+'</span><span class="s">–</span><span class="b">'+at.wb+'</span></span></div>'+
+    '<div><span class="k">All-time points</span><span class="v"><span class="a">'+fmt(at.pa)+'</span><span class="s">–</span><span class="b">'+fmt(at.pb)+'</span></span></div></div>';
+  if(!past.length)html+='<p class="lempty">The first champion is crowned when '+MONTHS[+curYm.slice(5,7)-1]+' ends.</p>';
+  else html+='<ul class="mlist">'+past.map(function(m){var w=at.months[m],win=w.a>w.b?'a':w.b>w.a?'b':null;
+    return '<li><button data-act="goto" data-ym="'+m+'">'+ymLabel(m)+'</button><span class="sc">'+fmt(w.a)+' to '+fmt(w.b)+'</span><span class="pill'+(win?' '+win:'')+'">'+(win?esc(N[win]):'Tie')+'</span></li>'}).join('')+'</ul>';
+  html+='</section>';
+  return html;
+}
+function renderTrophies(T){
+  var N=S.cfg.names,tro=S.tro,cnt={a:0,b:0},gold={a:0,b:0},max=TRACKS.length*3;
+  P.forEach(function(p){tro[p].forEach(function(x){cnt[p]+=x.lvl;if(x.lvl===3)gold[p]++})});
+  var lead=cnt.a>cnt.b?'a':cnt.b>cnt.a?'b':null;
+  var TM={smug:'Polishing the cabinet',chase:'Hunting trophies',meh:'Neck and neck'};
+  function side(p){
+    var m=!lead?'meh':p===lead?'smug':'chase',lm=liveMood(p,m);
+    return '<div class="side '+p+(lead&&lead!==p?' lead-off':'')+'">'+avatar(p,lm)+'<div class="stext"><span class="sname">'+esc(N[p])+'</span><span class="snum">'+cnt[p]+'</span><span class="mood">'+(TM[lm]||MOOD_TXT[lm])+'</span><span class="ssub">of '+max+' unlocked · '+gold[p]+' gold</span></div></div>';
+  }
+  function cell(p,x){
+    var tr=x.tr,lvl=x.lvl,nx=lvl<3?tr.tiers[lvl]:null,pips='';
+    for(var i=0;i<3;i++)pips+='<i class="pip'+(i<lvl?' t'+(i+1):'')+'"></i>';
+    var pct=nx?Math.min(100,Math.round(x.v/nx[0]*100)):100;
+    var prog=nx?(tr.max?'Best ':'')+fmt(x.v)+' / '+fmt(nx[0])+' for '+nx[1]:'Gold'+(tr.max?', best ':', ')+fmt(x.v);
+    return '<div class="tp '+p+'"><div class="pips" aria-label="'+(lvl?MEDAL[lvl-1]:'No medal yet')+'">'+pips+'</div>'+
+      '<span class="tname'+(lvl?'':' none')+'">'+(lvl?tr.tiers[lvl-1][1]:'Not yet')+'</span>'+
+      '<div class="tbar" role="progressbar" aria-valuenow="'+pct+'" aria-valuemin="0" aria-valuemax="100" aria-label="'+esc(N[p])+', '+tr.name+'"><i style="width:'+pct+'%"></i></div>'+
+      '<span class="tprog">'+prog+'</span></div>';
+  }
+  var html='<section class="board" aria-label="Trophy count">'+side('a')+
+    '<div class="mid"><span class="eyebrow">Trophies</span><span class="vs">VS</span><span class="eyebrow">Bronze, silver, gold</span></div>'+side('b')+
+    '<p class="leadline">'+nextText('a',nextUp(tro.a))+' '+nextText('b',nextUp(tro.b))+'</p></section>';
+  html+='<section class="panel"><div class="lhead"><h2>Trophy cabinet</h2><p>Each trophy has bronze, silver and gold. They count your whole history, including today.</p></div><ul class="tlist">'+
+    TRACKS.map(function(tr,i){
+      return '<li class="trow">'+cell('a',tro.a[i])+'<div class="tmid"><span class="tico" aria-hidden="true">'+tr.icon+'</span><span class="t">'+tr.name+'</span><span class="m">'+tr.what+'</span></div>'+cell('b',tro.b[i])+'</li>';
+    }).join('')+'</ul></section>';
+  return html;
+}
+function render(){
+  var T=todayKey();
+  S.tro=trophies(T);checkUnlocks(S.tro);
+  app.innerHTML=topbar(T)+(S.view==='league'?renderLeague(T):S.view==='trophies'?renderTrophies(T):renderToday(T));
+  updateSleepText();
+}
+
+/* ---------- actions ---------- */
+function add(p,kind,amt){
+  var T=todayKey(),before=pscore(S.days[T],p,T),t=S.cfg.targets[p];
+  setReact(p,'pop',700);
+  dispatch({t:'add',p:p,k:kind,amt:amt,tw:t.water,tp:t.protein});
+  var after=pscore(S.days[T],p,T),N=S.cfg.names[p];
+  if(kind==='water'&&after.hitW&&!before.hitW)toast(N+' hit the water target. +5 bonus');
+  else if(kind==='protein'&&after.hitP&&!before.hitP)toast(N+' hit the protein target. +5 bonus');
+}
+function undo(p){
+  var T=todayKey(),d=S.days[T],e=d&&d[p].log[d[p].log.length-1];if(!e)return;
+  dispatch({t:'undo',p:p});toast('Removed '+e.a+(e.k==='water'?' ml water':' g protein')+' for '+S.cfg.names[p]);
+}
+function claim(id,p){
+  var T=todayKey(),d=S.days[T],c=S.cfg.chores.filter(function(x){return x.id===id})[0];if(!c)return;
+  var cur=d&&d.chores[id],N=S.cfg.names;
+  if(cur&&cur.by===p){dispatch({t:'claim',cid:id,by:null});toast(N[p]+' unclaimed "'+c.name+'"');return}
+  if(cur&&cur.by){setReact(p,'smug',1900);setReact(cur.by,'shock',1900)}else setReact(p,'pop',700);
+  dispatch({t:'claim',cid:id,by:p,pts:c.pts,name:c.name});
+  toast(cur?N[p]+' took "'+c.name+'" from '+N[cur.by]:N[p]+' +'+c.pts+': '+c.name);
+}
+app.addEventListener('click',function(e){
+  var b=e.target.closest('[data-act]');if(!b||b.disabled)return;var a=b.dataset.act;
+  if(a==='add')add(b.dataset.p,b.dataset.k,+b.dataset.amt);
+  else if(a==='undo')undo(b.dataset.p);
+  else if(a==='claim')claim(b.dataset.id,b.dataset.p);
+  else if(a==='view'){S.view=b.dataset.v;if(S.view==='league')S.month=todayKey().slice(0,7);render();window.scrollTo(0,0)}
+  else if(a==='month'){S.month=ymShift(S.month,+b.dataset.d);render()}
+  else if(a==='goto'){S.month=b.dataset.ym;render();window.scrollTo(0,0)}
+  else if(a==='settings')openSettings();
+  else if(a==='sleep')goSleep();
+  else if(a==='syncnow'){pull(false).then(function(){flush()}).catch(function(){toast("Can't reach the Google Sheet right now. Changes are kept here and will save when it's back.")})}
+  else if(a==='motion'){if(dev.motion&&cam.stream){stopMotion();toast('Motion wake off. Tap the screen to wake it.')}else startMotion(true)}
+});
+
+/* ---------- toast ---------- */
+var toastEl=document.getElementById('toast'),toastT;
+function toast(msg,ms){toastEl.textContent=msg;toastEl.hidden=false;toast.at=Date.now();clearTimeout(toastT);toastT=setTimeout(function(){toastEl.hidden=true},ms||2800)}
+
+/* ---------- sleep and wake ---------- */
+var sleepEl=document.getElementById('sleep'),sleeping=false,lastActive=Date.now();
+function updateSleepText(){
+  var now=new Date();document.getElementById('sclock').textContent=pad(now.getHours())+':'+pad(now.getMinutes());
+  var T=todayKey(),d=S.days[T],N=S.cfg.names;
+  document.getElementById('sscore').textContent='Today  '+N.a+' '+pscore(d,'a',T).total+'  ·  '+N.b+' '+pscore(d,'b',T).total;
+}
+function goSleep(){if(sleeping)return;sleeping=true;document.getElementById('savs').innerHTML=avatar('a','sleep')+avatar('b','sleep');updateSleepText();sleepEl.hidden=false}
+function wake(){
+  if(!sleeping)return;sleeping=false;sleepEl.hidden=true;lastActive=Date.now();render();keepAwake();
+  if(celebQ.length){var q=celebQ;celebQ=[];setTimeout(function(){celebrate(q);render()},500)}
+  if(S.mode==='sheet'){pull(false).catch(function(){});flush()}
+}
+sleepEl.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();wake()});
+document.addEventListener('pointerdown',function(){lastActive=Date.now();keepAwake()},true);
+setInterval(function(){
+  if(!sleeping&&document.getElementById('modal').hidden&&Date.now()-lastActive>dev.idle*1000)goSleep();
+  if(sleeping)updateSleepText();
+},2000);
+var shownDay=todayKey();
+setInterval(function(){var t=todayKey();if(t!==shownDay){shownDay=t;render()}},30000);
+var lock=null;
+function keepAwake(){try{if('wakeLock' in navigator&&document.visibilityState==='visible'&&!lock){navigator.wakeLock.request('screen').then(function(l){lock=l;l.addEventListener('release',function(){lock=null})}).catch(function(){})}}catch(e){}}
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'){keepAwake();lastActive=Date.now();
+    if(dev.motion&&(!cam.stream||!cam.stream.active))startMotion(false);
+    if(S.mode==='sheet'){pull(false).catch(function(){});flush()}}
+});
+
+/* ---------- motion wake: front camera, frame differencing ---------- */
+var vid=document.getElementById('cam'),cv=document.createElement('canvas');cv.width=32;cv.height=24;
+var cx=cv.getContext('2d',{willReadFrequently:true});
+var cam={stream:null,timer:null,prev:null,level:0};
+function threshold(){return 28-dev.sens*2.4}
+function startMotion(fromTap){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){if(fromTap)toast("This view can't use the camera. Open the iPad version to get motion wake.");return}
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:160},height:{ideal:120}},audio:false}).then(function(st){
+    stopStream();cam.stream=st;vid.srcObject=st;var pl=vid.play();if(pl&&pl.catch)pl.catch(function(){});
+    cam.prev=null;cam.timer=setInterval(sample,400);dev.motion=true;saveDev();render();
+    if(fromTap)toast('Motion wake on. The screen lights up when someone walks in.');
+  }).catch(function(){dev.motion=false;saveDev();render();if(fromTap)toast("Camera wasn't allowed, so motion wake is off. Tap the screen to wake it instead.")});
+}
+function stopStream(){clearInterval(cam.timer);cam.timer=null;if(cam.stream)cam.stream.getTracks().forEach(function(t){t.stop()});cam.stream=null}
+function stopMotion(){stopStream();dev.motion=false;saveDev();render()}
+function sample(){
+  if(vid.readyState<2)return;try{cx.drawImage(vid,0,0,32,24)}catch(e){return}
+  var px=cx.getImageData(0,0,32,24).data,g=new Uint8Array(768),s=0,i;
+  for(i=0;i<768;i++)g[i]=(px[i*4]*3+px[i*4+1]*4+px[i*4+2])>>3;
+  if(cam.prev){for(i=0;i<768;i++)s+=Math.abs(g[i]-cam.prev[i]);cam.level=s/768;if(cam.level>threshold()){lastActive=Date.now();if(sleeping)wake()}}
+  cam.prev=g;var lv=document.getElementById('lvlbar');if(lv)lv.style.width=Math.min(100,cam.level/30*100)+'%';
+}
+
+/* ---------- settings ---------- */
+var modal=document.getElementById('modal'),draft=null,clearArmed=false,connecting=false;
+function openSettings(){draft={cfg:clone(S.cfg),dev:clone(dev),sheetUrl:sheet?sheet.url:'',sheetKey:sheet?sheet.key:''};clearArmed=false;drawSettings();modal.hidden=false}
+function readDraft(){
+  if(!draft)return;function v(id){var el=document.getElementById(id);return el?el.value:null}
+  P.forEach(function(p){
+    if(v('n-'+p)!==null)draft.cfg.names[p]=v('n-'+p).trim()||DEF_CFG.names[p];
+    if(v('w-'+p)!==null)draft.cfg.targets[p].water=Math.max(250,Math.round(+v('w-'+p)||DEF_CFG.targets[p].water));
+    if(v('pr-'+p)!==null)draft.cfg.targets[p].protein=Math.max(10,Math.round(+v('pr-'+p)||DEF_CFG.targets[p].protein));
+  });
+  draft.cfg.chores.forEach(function(c){var n=v('cn-'+c.id),pt=v('cp-'+c.id);if(n!==null)c.name=n.trim();if(pt!==null)c.pts=Math.max(1,Math.min(50,Math.round(+pt||5)))});
+  if(v('idle')!==null)draft.dev.idle=+v('idle')||90;if(v('sens')!==null)draft.dev.sens=+v('sens')||6;
+  if(v('su')!==null)draft.sheetUrl=v('su');if(v('sk')!==null)draft.sheetKey=v('sk');
+}
+function drawSettings(){
+  var c=draft.cfg,camOk=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
+  var h='<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="st"><h2 id="st">Settings</h2>';
+  h+='<div><h3>Players and daily targets</h3><div class="fgrid">';
+  P.forEach(function(p){
+    h+='<div class="field"><label for="n-'+p+'">Player '+(p==='a'?'one':'two')+' name</label><input id="n-'+p+'" value="'+esc(c.names[p])+'" maxlength="24"></div>'+
+      '<div class="field"><label for="w-'+p+'">Water target (ml)</label><input id="w-'+p+'" type="number" inputmode="numeric" min="250" step="250" value="'+c.targets[p].water+'"></div>'+
+      '<div class="field"><label for="pr-'+p+'">Protein target (g)</label><input id="pr-'+p+'" type="number" inputmode="numeric" min="10" step="5" value="'+c.targets[p].protein+'"></div>';
+  });
+  h+='</div><p class="note">Points come from how close each of you gets to your own target, so different targets still make a fair fight.</p></div>';
+  h+='<div><h3>Chores and points</h3><div class="celist">'+c.chores.map(function(ch){
+    return '<div class="crow-edit"><input id="cn-'+esc(ch.id)+'" value="'+esc(ch.name)+'" maxlength="60" aria-label="Chore name"><input id="cp-'+esc(ch.id)+'" type="number" inputmode="numeric" min="1" max="50" value="'+ch.pts+'" aria-label="Points"><button class="sbtn" data-s="rm" data-id="'+esc(ch.id)+'">Remove</button></div>';
+  }).join('')+'</div><div class="srow"><button class="sbtn" data-s="addchore">Add chore</button></div></div>';
+  if(!inArtifact){
+    h+='<div><h3>Google Drive sync</h3>';
+    if(S.mode==='sheet'){
+      var hosted=/^https:$/.test(location.protocol)||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+      h+='<p class="note"><b>Connected.</b> Scores save to your Google Sheet and sync to every device connected to it.</p>'+
+        '<div class="pair">'+(hosted?'<div class="qr" id="qr"><span>Loading code…</span></div>':'')+'<div class="pairtext">'+
+        '<p class="note"><b>Add the iPad or a phone.</b> '+(hosted?'Scan this code with its camera, or send it the pairing link. ':'Send it the pairing link. ')+
+        'If Kitchen League is already on its Home Screen, open it from there and paste the link into Settings, because Home Screen apps keep their own storage.</p>'+
+        '<div class="srow">'+(navigator.share?'<button class="sbtn" data-s="share">Share link</button>':'')+'<button class="sbtn" data-s="copy">Copy pairing link</button><button class="sbtn" data-s="disc">Disconnect this device</button></div>'+
+        '<p class="note">The link includes your key, so only share it with your household.</p></div></div>';
+    }
+    else h+='<div class="fgrid"><div class="field"><label for="su">Web app address or pairing link</label><input id="su" type="url" placeholder="https://script.google.com/macros/s/…/exec" value="'+esc(draft.sheetUrl)+'"></div>'+
+      '<div class="field"><label for="sk">Key</label><input id="sk" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="'+esc(draft.sheetKey)+'"></div></div>'+
+      '<div class="srow"><button class="sbtn primary" data-s="conn"'+(connecting?' disabled':'')+'>'+(connecting?'Connecting…':'Connect')+'</button></div>'+
+      '<p class="note">Paste the address and key from the <b>Kitchen League &gt; Set up</b> menu in your Google Sheet, or a pairing link from a device that is already connected (then the key fills itself in). Scores already on this device are copied into the sheet when you connect.</p>';
+    h+='</div>';
+  }else{
+    h+='<div><h3>Sync</h3><p class="note">'+(S.mode==='db'?'Scores save to your Claude account, so they show up wherever you open this page.':'Scores are kept in this browser.')+'</p></div>';
+  }
+  h+='<div><h3>This screen</h3><div class="fgrid"><div class="field"><label for="idle">Go dark after</label><select id="idle">'+
+    [[30,'30 seconds'],[60,'1 minute'],[90,'90 seconds'],[120,'2 minutes'],[300,'5 minutes'],[600,'10 minutes']].map(function(o){return '<option value="'+o[0]+'"'+(draft.dev.idle===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></div>'+
+    '<div class="field"><label for="sens">Motion sensitivity</label><input id="sens" type="range" min="1" max="10" step="1" value="'+draft.dev.sens+'">'+
+    '<div class="lvl" aria-hidden="true"><i id="lvlbar"></i><b id="lvlmark" style="left:'+Math.min(100,(28-draft.dev.sens*2.4)/30*100)+'%"></b></div></div></div>'+
+    '<p class="note">'+(camOk?(cam.stream?'Camera is running. Wave at the screen: the green bar should cross the line. If it fires when nobody is there, lower the sensitivity.':'Turn on motion wake from the top bar, then come back here to tune it.'):"Motion wake needs the camera, which isn't available in this view. It works when the page is opened from its own web address on the iPad.")+'</p></div>';
+  h+='<div><h3>Today</h3><button class="sbtn danger" data-s="clear">'+(clearArmed?'Tap again to clear today':'Clear today\'s scores')+'</button></div>';
+  h+='<div class="sactions"><button class="sbtn" data-s="cancel">Cancel</button><button class="sbtn primary" data-s="save">Save</button></div></div>';
+  modal.innerHTML=h;
+  if(document.getElementById('qr'))drawQr();
+  var sens=document.getElementById('sens');
+  sens.addEventListener('input',function(){var m=document.getElementById('lvlmark');if(m)m.style.left=Math.min(100,(28-sens.value*2.4)/30*100)+'%';dev.sens=+sens.value});
+}
+modal.addEventListener('click',function(e){
+  if(e.target===modal){closeSettings(false);return}
+  var b=e.target.closest('[data-s]');if(!b||b.disabled)return;var s=b.dataset.s;
+  if(s==='cancel')closeSettings(false);
+  else if(s==='save')closeSettings(true);
+  else if(s==='addchore'){readDraft();draft.cfg.chores.push({id:'c'+uid(),name:'New chore',pts:8});drawSettings()}
+  else if(s==='rm'){readDraft();draft.cfg.chores=draft.cfg.chores.filter(function(c){return c.id!==b.dataset.id});drawSettings()}
+  else if(s==='clear'){
+    readDraft();
+    if(!clearArmed){clearArmed=true;drawSettings();setTimeout(function(){if(clearArmed&&!modal.hidden){readDraft();clearArmed=false;drawSettings()}},3500)}
+    else{dispatch({t:'clear'});clearArmed=false;drawSettings();toast("Today's scores cleared")}
+  }
+  else if(s==='share'){navigator.share({title:'Kitchen League',text:'Open this to connect Kitchen League to our Google Sheet.',url:pairLink()}).catch(function(){})}
+  else if(s==='copy'){
+    var link=pairLink();
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(link).then(function(){toast('Pairing link copied')},function(){toast("Couldn't copy the link here. Try the Share button.")});
+    else toast("Couldn't copy the link here. Try the Share button.");
+  }
+  else if(s==='conn'){
+    readDraft();var pr=parsePair(draft.sheetUrl);if(pr){draft.sheetUrl=pr.url;draft.sheetKey=pr.key}
+    connecting=true;drawSettings();
+    connectSheet(draft.sheetUrl||'',draft.sheetKey||'').then(function(n){
+      connecting=false;draft.cfg=clone(S.cfg);drawSettings();
+      toast(n?'Connected. Copying '+n+' day'+(n===1?'':'s')+' from this device into the sheet.':'Connected to your Google Sheet.');
+    },function(err){connecting=false;drawSettings();toast(err&&err.message&&err.message.length<140?err.message:"Couldn't reach the sheet. Check the address, the key, and that the web app is deployed with access for Anyone.")});
+  }
+  else if(s==='disc'){readDraft();disconnectSheet();drawSettings();toast('Disconnected. Scores now stay on this device.')}
+});
+function closeSettings(save){
+  if(save){
+    readDraft();draft.cfg.chores=draft.cfg.chores.filter(function(c){return c.name});
+    S.cfg=normCfg(draft.cfg);saveCfg();dev.idle=draft.dev.idle;dev.sens=draft.dev.sens;saveDev();toast('Settings saved');
+  }else if(draft){dev.sens=draft.dev.sens}
+  draft=null;modal.hidden=true;modal.innerHTML='';lastActive=Date.now();render();
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!modal.hidden)closeSettings(false)});
+
+/* ---------- boot ---------- */
+if(sheet&&!inArtifact){S.mode='sheet';sync.state=S.pending.length?'saving':'ok'}
+recompute();render();keepAwake();
+if(S.mode==='sheet'){pull(false).catch(function(){});flush();startPolling()}
+else connectDb();
+if(dev.motion)startMotion(false);
+takePairLink();window.addEventListener('hashchange',takePairLink);
+// offline shell for the hosted copy: the kitchen iPad still opens if the Wi-Fi drops
+if('serviceWorker' in navigator&&location.protocol==='https:'&&!inArtifact)navigator.serviceWorker.register('sw.js').catch(function(){});
+})();
+</script>
+
+</body></html>
