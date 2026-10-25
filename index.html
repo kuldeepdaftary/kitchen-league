@@ -141,10 +141,11 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .p-a .fill{background:var(--a)} .p-b .fill{background:var(--b)}
 .goal{font-size:13px;font-weight:700;color:var(--good)}
 .btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:8px}
-.btn{min-height:54px;border-radius:12px;border:none;font-weight:700;font-size:18px;font-variant-numeric:tabular-nums;transition:transform .08s ease}
+.btn{min-height:54px;border-radius:12px;border:none;font-weight:700;font-size:clamp(14px,1.5vw,18px);white-space:nowrap;font-variant-numeric:tabular-nums;transition:transform .08s ease}
 .btn:active{transform:scale(.96)}
 .p-a .btn{background:var(--a-soft);color:var(--a-ink)}
 .p-b .btn{background:var(--b-soft);color:var(--b-ink)}
+.p-a .btn.treat,.p-b .btn.treat{background:var(--track);color:var(--ink);font-size:16px}
 .pfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px 16px;margin-top:10px;border-top:1px solid var(--line)}
 .breakdown{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
 .breakdown b{color:var(--ink)}
@@ -341,7 +342,7 @@ function normDay(d,k){
   ['a','b'].forEach(function(p){var x=d[p]=d[p]||{};x.water=+x.water||0;x.protein=+x.protein||0;x.log=Array.isArray(x.log)?x.log:[]});
   d.chores=d.chores&&typeof d.chores==='object'?d.chores:{};d.seen=Array.isArray(d.seen)?d.seen:[];d.date=k;return d;
 }
-function dayActive(d){if(!d)return false;return ['a','b'].some(function(p){return d[p]&&(d[p].water>0||d[p].protein>0)})||Object.keys(d.chores||{}).length>0}
+function dayActive(d){if(!d)return false;return ['a','b'].some(function(p){return d[p]&&(d[p].water>0||d[p].protein>0||d[p].sweet>0||d[p].fried>0)})||Object.keys(d.chores||{}).length>0}
 function applyOp(d,o){
   if(o.id&&d.seen.indexOf(o.id)>=0)return d;
   if(o.t==='add'){var x=d[o.p];x[o.k]=(x[o.k]||0)+o.amt;x.log.push({k:o.k,a:o.amt,t:o.ts});if(x.log.length>40)x.log=x.log.slice(-40);if(o.tw){x.tw=o.tw;x.tp=o.tp}}
@@ -356,7 +357,8 @@ function scoreOf(d,p,t){
   var x=(d&&d[p])||{water:0,protein:0},hitW=x.water>=t.water,hitP=x.protein>=t.protein;
   var w=Math.round(Math.min(1,x.water/t.water)*15)+(hitW?5:0),pr=Math.round(Math.min(1,x.protein/t.protein)*15)+(hitP?5:0);
   var c=0,cn=0,ch=(d&&d.chores)||{};for(var id in ch){if(ch[id]&&ch[id].by===p){c+=ch[id].pts||0;cn++}}
-  return{w:w,pr:pr,c:c,cn:cn,total:w+pr+c,hitW:hitW,hitP:hitP,water:x.water||0,protein:x.protein||0,t:t};
+  var neg=(+x.sweet||0)+(+x.fried||0);
+  return{w:w,pr:pr,c:c,cn:cn,neg:neg,total:w+pr+c-neg,hitW:hitW,hitP:hitP,water:x.water||0,protein:x.protein||0,t:t};
 }
 /* SHARED END */
 
@@ -365,6 +367,7 @@ function scoreOf(d,p,t){
 var DEF_CFG={
   names:{a:'Blue',b:'Orange'},
   targets:{a:{water:3000,protein:120},b:{water:2500,protein:90}},
+  treat:5, // points each sweet treat or fried food costs; 0 hides the buttons
   chores:[
     {id:'dishes',name:'Load or empty dishwasher',pts:10},
     {id:'counters',name:'Wipe counters and hob',pts:8},
@@ -384,7 +387,7 @@ var inArtifact=!!(window.claude&&typeof window.claude.use==='function');
 function clone(o){return JSON.parse(JSON.stringify(o))}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function pad(n){return(n<10?'0':'')+n}
-function fmt(n){return Number(n).toLocaleString('en-GB')}
+function fmt(n){return Number(n).toLocaleString('en-GB').replace('-','−')} // treats can push a score below zero: use a real minus sign
 function keyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function dateOf(k){var p=k.split('-').map(Number);return new Date(p[0],p[1]-1,p[2])}
 function addDays(k,n){var d=dateOf(k);d.setDate(d.getDate()+n);return keyOf(d)}
@@ -401,6 +404,7 @@ function normCfg(c){
   var o=clone(DEF_CFG);if(!c||typeof c!=='object')return o;
   if(c.names)P.forEach(function(p){if(c.names[p])o.names[p]=String(c.names[p]).slice(0,24)});
   if(c.targets)P.forEach(function(p){var t=c.targets[p]||{};if(t.water>0)o.targets[p].water=+t.water;if(t.protein>0)o.targets[p].protein=+t.protein});
+  if(c.treat!==undefined&&c.treat!==null&&+c.treat>=0)o.treat=Math.min(20,Math.round(+c.treat));
   if(Array.isArray(c.chores))o.chores=c.chores.filter(function(x){return x&&x.id&&x.name}).map(function(x){var y={id:String(x.id),name:String(x.name).slice(0,60),pts:Math.max(1,Math.min(50,Math.round(+x.pts||5)))};if(x.multi)y.multi=true;return y});
   return o;
 }
@@ -611,7 +615,7 @@ function streak(p,T){
 function monthStats(ym,T){
   var y=+ym.slice(0,4),m=+ym.slice(5,7),dim=new Date(y,m,0).getDate(),curYm=T.slice(0,7);
   var last=ym===curYm?+T.slice(8,10):ym<curYm?dim:0;
-  var r={ym:ym,dim:dim,last:last,complete:ym<curYm,cum:{a:[],b:[]},tot:{a:0,b:0},won:{a:0,b:0},cn:{a:0,b:0},cp:{a:0,b:0},wd:{a:0,b:0},pd:{a:0,b:0},hp:{a:0,b:0},best:{a:null,b:null},streak:{a:0,b:0},top:{a:null,b:null},active:0};
+  var r={ym:ym,dim:dim,last:last,complete:ym<curYm,cum:{a:[],b:[]},tot:{a:0,b:0},won:{a:0,b:0},cn:{a:0,b:0},cp:{a:0,b:0},tr:{a:0,b:0},wd:{a:0,b:0},pd:{a:0,b:0},hp:{a:0,b:0},best:{a:null,b:null},streak:{a:0,b:0},top:{a:null,b:null},active:0};
   var run={a:0,b:0},cnt={a:{},b:{}},names={};
   S.cfg.chores.forEach(function(c){names[c.id]=c.name});
   for(var i=1;i<=last;i++){
@@ -620,7 +624,7 @@ function monthStats(ym,T){
     P.forEach(function(p){
       var s=d?pscore(d,p,k):null;sc[p]=s?s.total:0;
       r.tot[p]+=sc[p];r.cum[p].push(r.tot[p]);
-      if(s){r.cn[p]+=s.cn;r.cp[p]+=s.c;if(s.hitW)r.wd[p]++;if(s.hitP)r.pd[p]++;
+      if(s){r.cn[p]+=s.cn;r.cp[p]+=s.c;r.tr[p]+=treatCount(d[p]);if(s.hitW)r.wd[p]++;if(s.hitP)r.pd[p]++;
         if(s.hitW&&s.hitP){run[p]++;r.hp[p]++;if(run[p]>r.streak[p])r.streak[p]=run[p]}else if(k<T)run[p]=0;
         if(act&&(!r.best[p]||s.total>r.best[p].pts))r.best[p]={pts:s.total,k:k};
       }else if(k<T)run[p]=0;
@@ -643,6 +647,7 @@ var TRACKS=[
   {id:'water',icon:'💧',name:'Hydration',what:'Days hitting the water target',unit:'day',tiers:[[5,'Sipper'],[25,'Camel'],[100,'Fish']]},
   {id:'protein',icon:'🥚',name:'Protein',what:'Days hitting the protein target',unit:'day',tiers:[[5,'Snacker'],[25,'Lifter'],[100,'Powerhouse']]},
   {id:'streak',icon:'🔥',name:'Streak',what:'Days in a row hitting both targets',unit:'day',max:true,hint:function(n){return 'a '+n+'-day streak'},tiers:[[3,'On a Roll'],[7,'Iron Week'],[30,'Unbreakable']]},
+  {id:'clean',icon:'🥦',name:'Clean Streak',what:'Days in a row with no treats',unit:'day',max:true,hint:function(n){return 'a '+n+'-day clean streak'},tiers:[[3,'Fresh Start'],[7,'Clean Week'],[30,'Iron Will']]},
   {id:'chores',icon:'🧽',name:'Chores',what:'Chores done in total',unit:'chore',tiers:[[10,'Helping Hand'],[50,'House Hero'],[200,'Chore Machine']]},
   {id:'busy',icon:'🐝',name:'Busy Day',what:'Most chores in one day',unit:'chore',max:true,hint:function(n){return 'a '+n+'-chore day'},tiers:[[3,'Busy Bee'],[5,'Whirlwind'],[8,'Tornado']]},
   {id:'bigday',icon:'🚀',name:'Big Day',what:'Best score in one day',unit:'point',max:true,hint:function(n){return 'a '+n+'-point day'},tiers:[[50,'Half Century'],[75,'High Flyer'],[100,'Century']]},
@@ -655,11 +660,11 @@ var TRACKS=[
 var MEDAL=['bronze','silver','gold'];
 function pl(n,u){return fmt(n)+' '+u+(n===1?'':'s')}
 function trophyStats(T){
-  var at=allTime(T),st={},run={a:0,b:0},win={a:0,b:0},prev=null;
-  P.forEach(function(p){st[p]={water:0,protein:0,streak:0,chores:0,busy:0,bigday:0,wins:0,run:0,weeks:p==='a'?at.wa:at.wb,months:p==='a'?at.ma:at.mb,early:0}});
+  var at=allTime(T),st={},run={a:0,b:0},win={a:0,b:0},clean={a:0,b:0},prev=null;
+  P.forEach(function(p){st[p]={water:0,protein:0,streak:0,chores:0,busy:0,bigday:0,wins:0,run:0,weeks:p==='a'?at.wa:at.wb,months:p==='a'?at.ma:at.mb,early:0,clean:0}});
   Object.keys(S.days).sort().forEach(function(k){
     var d=S.days[k],act=dayActive(d),sc={};
-    if(prev&&addDays(prev,1)!==k){run={a:0,b:0};win={a:0,b:0}}
+    if(prev&&addDays(prev,1)!==k){run={a:0,b:0};win={a:0,b:0};clean={a:0,b:0}}
     prev=k;
     P.forEach(function(p){
       var s=sc[p]=pscore(d,p,k),o=st[p];
@@ -669,8 +674,12 @@ function trophyStats(T){
       if(act&&s.total>o.bigday)o.bigday=s.total;
       if(d[p].log.some(function(e){return e&&e.k==='water'&&new Date(e.t).getHours()<8}))o.early++;
     });
-    // only finished days can be won, same as the League tab
+    // only finished days count for wins and clean days, same as the League tab
     if(k>=T)return;
+    P.forEach(function(p){
+      var played=sc[p].water>0||sc[p].protein>0||sc[p].cn>0;
+      if(played&&!treatCount(d[p])){clean[p]++;if(clean[p]>st[p].clean)st[p].clean=clean[p]}else clean[p]=0;
+    });
     var w=act?(sc.a.total>sc.b.total?'a':sc.b.total>sc.a.total?'b':null):null;
     P.forEach(function(p){if(p===w){st[p].wins++;win[p]++;if(win[p]>st[p].run)st[p].run=win[p]}else win[p]=0});
   });
@@ -727,9 +736,9 @@ var LOOK={
   b:{skin:'#F4D4C0',shade:'#E3B49B',hair:'#E3C47C',hairD:'#C7A45A',brow:'#A9864F',iris:'#3F7FC4',mouthY:89}
 };
 var DARK='#3A1C17',PINK='#F07B7B',TEAR='#6CC4F5',SICK='#9CCB4E',SHADES='#15171C',GOLD='#F5C542';
-var MOOD_TXT={cry:'Parched and sobbing',sad:'Wilting a bit',meh:'Getting by',happy:'Feeling good',laugh:'Absolutely thriving',shock:'Robbed!',champ:'Champion',chase:'Chasing',rematch:'Demands a rematch',lead:'Leading',sleep:'Asleep',yawn:'Still waking up',smug:'Too smooth',party:'Party time'};
+var MOOD_TXT={cry:'Parched and sobbing',sad:'Wilting a bit',meh:'Getting by',happy:'Feeling good',laugh:'Absolutely thriving',shock:'Robbed!',champ:'Champion',chase:'Chasing',rematch:'Demands a rematch',lead:'Leading',sleep:'Asleep',yawn:'Still waking up',smug:'Too smooth',party:'Party time',guilty:'Caught snacking'};
 function moodFor(total){return total<=0?(new Date().getHours()<10?'yawn':'cry'):total<15?'sad':total<35?'meh':total<60?'happy':'laugh'}
-var react={a:null,b:null},FACE_REACT={shock:1,smug:1,party:1};
+var react={a:null,b:null},FACE_REACT={shock:1,smug:1,party:1,guilty:1};
 function setReact(p,type,ms){react[p]={type:type,until:Date.now()+ms};setTimeout(function(){render()},ms+30)}
 function liveMood(p,base){var r=react[p];if(r&&FACE_REACT[r.type]&&Date.now()<r.until)return r.type;return base}
 function star(x,y,r,fill,cls){var q=r*2/7;return '<path class="spark '+cls+'" d="M'+x+' '+(y-r)+' L'+(x+q)+' '+(y-q)+' L'+(x+r)+' '+y+' L'+(x+q)+' '+(y+q)+' L'+x+' '+(y+r)+' L'+(x-q)+' '+(y+q)+' L'+(x-r)+' '+y+' L'+(x-q)+' '+(y-q)+' Z" fill="'+fill+'"/>'}
@@ -750,10 +759,10 @@ function avatar(p,mood,extraCls){
   }
   // cheeks
   var big=mood==='laugh'||mood==='party';
-  if(mood==='happy'||mood==='laugh'||mood==='champ'||mood==='lead'||mood==='party')s+='<ellipse cx="38" cy="78" rx="7" ry="4.5" fill="'+PINK+'" opacity="'+(big?.55:.35)+'"/><ellipse cx="82" cy="78" rx="7" ry="4.5" fill="'+PINK+'" opacity="'+(big?.55:.35)+'"/>';
+  if(mood==='happy'||mood==='laugh'||mood==='champ'||mood==='lead'||mood==='party'||mood==='guilty')s+='<ellipse cx="38" cy="78" rx="7" ry="4.5" fill="'+PINK+'" opacity="'+(big?.55:.35)+'"/><ellipse cx="82" cy="78" rx="7" ry="4.5" fill="'+PINK+'" opacity="'+(big?.55:.35)+'"/>';
   // brows
   var bw=p==='a'?5:3,br;
-  if(mood==='sad'||mood==='cry'||mood==='chase'||mood==='rematch')br=[[39,55,53,49],[81,55,67,49]];
+  if(mood==='sad'||mood==='cry'||mood==='chase'||mood==='rematch'||mood==='guilty')br=[[39,55,53,49],[81,55,67,49]];
   else if(mood==='shock')br=[[39,46,53,44],[81,46,67,44]];
   else if(mood==='smug')br=[[39,48,53,44],[81,53,67,52]];
   else if(mood==='meh'||mood==='sleep'||mood==='yawn')br=[[39,54,53,54],[81,54,67,54]];
@@ -768,7 +777,7 @@ function avatar(p,mood,extraCls){
   else if(mood==='shock')e='<circle cx="47" cy="63" r="7.5" fill="#fff" stroke="'+DARK+'" stroke-width="1.5"/><circle cx="73" cy="63" r="7.5" fill="#fff" stroke="'+DARK+'" stroke-width="1.5"/><circle cx="47" cy="63" r="2.6" fill="'+DARK+'"/><circle cx="73" cy="63" r="2.6" fill="'+DARK+'"/>';
   else{
     e='<g class="eyes"><circle cx="47" cy="64" r="4" fill="'+L.iris+'"/><circle cx="73" cy="64" r="4" fill="'+L.iris+'"/><circle cx="48.4" cy="62.6" r="1.3" fill="#fff"/><circle cx="74.4" cy="62.6" r="1.3" fill="#fff"/></g>';
-    if(mood==='meh'||mood==='rematch')e+='<path d="M41 61 L53 61" stroke="'+L.skin+'" stroke-width="5"/><path d="M67 61 L79 61" stroke="'+L.skin+'" stroke-width="5"/><path d="M41 63 L53 63" stroke="'+DARK+'" stroke-width="1.6" stroke-linecap="round"/><path d="M67 63 L79 63" stroke="'+DARK+'" stroke-width="1.6" stroke-linecap="round"/>';
+    if(mood==='meh'||mood==='rematch'||mood==='guilty')e+='<path d="M41 61 L53 61" stroke="'+L.skin+'" stroke-width="5"/><path d="M67 61 L79 61" stroke="'+L.skin+'" stroke-width="5"/><path d="M41 63 L53 63" stroke="'+DARK+'" stroke-width="1.6" stroke-linecap="round"/><path d="M67 63 L79 63" stroke="'+DARK+'" stroke-width="1.6" stroke-linecap="round"/>';
     if(mood==='sad'||mood==='chase')e+='<path d="M42 71 Q47 74 52 71" stroke="'+L.shade+'" stroke-width="1.8" fill="none"/><path d="M68 71 Q73 74 78 71" stroke="'+L.shade+'" stroke-width="1.8" fill="none"/>';
   }
   s+=e;
@@ -778,6 +787,7 @@ function avatar(p,mood,extraCls){
   var y=my;
   if(mood==='cry')s+='<path d="M45 '+(y+7)+' Q60 '+(y-9)+' 75 '+(y+7)+' Q60 '+(y+13)+' 45 '+(y+7)+' Z" fill="'+DARK+'"/><ellipse cx="60" cy="'+(y+8)+'" rx="6" ry="2.6" fill="'+PINK+'"/>';
   else if(mood==='sad'||mood==='chase')s+='<path d="M50 '+(y+4)+' Q60 '+(y-4)+' 70 '+(y+4)+'" stroke="'+DARK+'" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  else if(mood==='guilty')s+='<path d="M49 '+(y+1)+' q2.75 -3 5.5 0 t5.5 0 t5.5 0 t5.5 0" stroke="'+DARK+'" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
   else if(mood==='meh'||mood==='rematch')s+='<path d="M52 '+y+' L68 '+(y+1.5)+'" stroke="'+DARK+'" stroke-width="3" stroke-linecap="round"/>';
   else if(mood==='happy'||mood==='lead')s+='<path d="M48 '+(y-2)+' Q60 '+(y+10)+' 72 '+(y-2)+'" stroke="'+DARK+'" stroke-width="3" fill="'+(p==='a'?'none':'none')+'" stroke-linecap="round"/>';
   else if(mood==='laugh'||mood==='champ'||mood==='party')s+='<path d="M44 '+(y-4)+' L76 '+(y-4)+' Q74 '+(y+15)+' 60 '+(y+15)+' Q46 '+(y+15)+' 44 '+(y-4)+' Z" fill="'+DARK+'"/><path d="M46 '+(y-4)+' L74 '+(y-4)+' L73 '+(y+1)+' L47 '+(y+1)+' Z" fill="#fff"/><ellipse cx="60" cy="'+(y+10)+'" rx="7" ry="3.4" fill="'+PINK+'"/>';
@@ -787,7 +797,7 @@ function avatar(p,mood,extraCls){
   else if(mood==='smug')s+='<path d="M49 '+(y+2)+' Q61 '+(y+6)+' 72 '+(y-3)+'" stroke="'+DARK+'" stroke-width="3" fill="none" stroke-linecap="round"/>';
   // extras
   if(mood==='cry'){['t1','t2','t3'].forEach(function(t){s+='<path class="tear '+t+'" d="M43 69 q-3.5 6 0 8.5 q3.5 -2.5 0 -8.5Z" fill="'+TEAR+'"/><path class="tear '+t+'" d="M77 69 q-3.5 6 0 8.5 q3.5 -2.5 0 -8.5Z" fill="'+TEAR+'"/>'})}
-  if(mood==='sad'||mood==='shock'||mood==='chase')s+='<path class="sweat" d="M88 40 q-4 7 0 9.5 q4 -2.5 0 -9.5Z" fill="'+TEAR+'"/>';
+  if(mood==='sad'||mood==='shock'||mood==='chase'||mood==='guilty')s+='<path class="sweat" d="M88 40 q-4 7 0 9.5 q4 -2.5 0 -9.5Z" fill="'+TEAR+'"/>';
   if(mood==='laugh'||mood==='champ'){
     s+='<path class="joy l" d="M40 66 q-3 5 0 7 q3 -2 0 -7Z" fill="'+TEAR+'"/><path class="joy r" d="M80 66 q-3 5 0 7 q3 -2 0 -7Z" fill="'+TEAR+'"/><path class="joy l d2" d="M40 66 q-3 5 0 7 q3 -2 0 -7Z" fill="'+TEAR+'"/><path class="joy r d2" d="M80 66 q-3 5 0 7 q3 -2 0 -7Z" fill="'+TEAR+'"/>';
   }
@@ -803,7 +813,7 @@ function avatar(p,mood,extraCls){
   if(mood==='sleep')s+='<text class="zz" x="92" y="34" font-size="14" fill="currentColor">z</text><text class="zz z2" x="98" y="26" font-size="18" fill="currentColor">z</text><text class="zz z3" x="104" y="16" font-size="22" fill="currentColor">Z</text>';
   if(mood==='yawn')s+='<text class="zz" x="96" y="30" font-size="14" fill="currentColor">z</text>';
   s+='</svg>';
-  var anim=mood==='champ'?'laugh':mood==='lead'?'happy':mood==='chase'?'sad':mood==='rematch'?'meh':mood;
+  var anim=mood==='champ'?'laugh':mood==='lead'?'happy':mood==='chase'||mood==='guilty'?'sad':mood==='rematch'?'meh':mood;
   var r=react[p],pop=r&&r.type==='pop'&&Date.now()<r.until?' pop':'';
   return '<div class="av m-'+anim+pop+(extraCls?' '+extraCls:'')+'">'+s+'</div>';
 }
@@ -828,7 +838,7 @@ function leadLine(s,day){
   var N=S.cfg.names,ch=(day&&day.chores)||{};
   if(s.a.total===0&&s.b.total===0)return 'New day, level scores. First glass of water takes the lead.';
   var open=S.cfg.chores.filter(function(c){return!c.multi&&!ch[c.id]}).sort(function(x,y){return y.pts-x.pts})[0];
-  if(s.a.total===s.b.total)return 'All square on '+s.a.total+'. '+(open?'"'+esc(open.name)+'" (+'+open.pts+') breaks the tie.':'Next sip of water breaks the tie.');
+  if(s.a.total===s.b.total)return 'All square on '+fmt(s.a.total)+'. '+(open?'"'+esc(open.name)+'" (+'+open.pts+') breaks the tie.':'Next sip of water breaks the tie.');
   var lead=s.a.total>s.b.total?'a':'b',trail=lead==='a'?'b':'a',gap=Math.abs(s.a.total-s.b.total);
   var line=esc(N[lead])+' leads by '+gap+'. ';
   if(open)line+=esc(N[trail])+', "'+esc(open.name)+'" is worth +'+open.pts+(open.pts>gap?' and puts you ahead.':open.pts===gap?' and levels it.':'.');
@@ -846,21 +856,30 @@ function meter(p,kind,s){
     '<div class="track" role="progressbar" aria-valuenow="'+pct+'" aria-valuemin="0" aria-valuemax="100" aria-label="'+(isW?'Water':'Protein')+' progress"><div class="fill" style="width:'+pct+'%"></div></div>'+
     '<div class="btns">'+amts.map(function(a){return '<button class="btn" data-act="add" data-p="'+p+'" data-k="'+kind+'" data-amt="'+a+'">+'+a+(isW?' ml':' g')+'</button>'}).join('')+'</div></div>';
 }
+// Treats are stored like water and protein: day[p].sweet / day[p].fried hold the penalty points, the log keeps each one for Undo and the Timeline
+var TREATS={sweet:{icon:'🍩',btn:'Sweet',said:'had a sweet treat'},fried:{icon:'🍟',btn:'Fried',said:'had fried food'}};
+function treatCount(x){return x&&x.log?x.log.filter(function(e){return e&&TREATS[e.k]}).length:0}
+function treatsBox(p,day){
+  var v=S.cfg.treat;if(!v)return '';
+  var x=day&&day[p],n=treatCount(x),neg=x?(+x.sweet||0)+(+x.fried||0):0;
+  return '<div class="meter treats"><div class="mrow"><span class="mlabel">Treats</span><span class="mval">'+(n?'<b>'+n+'</b> today, −'+neg+' pts':'None today')+'</span></div>'+
+    '<div class="btns">'+Object.keys(TREATS).map(function(k){return '<button class="btn treat" data-act="treat" data-p="'+p+'" data-k="'+k+'">'+TREATS[k].icon+' '+TREATS[k].btn+' −'+v+'</button>'}).join('')+'</div></div>';
+}
 function renderToday(T){
   var cfg=S.cfg,N=cfg.names,day=S.days[T],s={a:pscore(day,'a',T),b:pscore(day,'b',T)},wk=weekStats(T),ms=monthStats(T.slice(0,7),T),ini=initials();
   var mName=MONTHS[+T.slice(5,7)-1];
   var mo={a:liveMood('a',moodFor(s.a.total)),b:liveMood('b',moodFor(s.b.total))};
   var html='<section class="board" aria-label="Today\'s score">'+
-    '<div class="side a'+(s.a.total<s.b.total?' lead-off':'')+'">'+avatar('a',mo.a)+'<div class="stext"><span class="sname">'+esc(N.a)+'</span><span class="snum">'+s.a.total+'</span><span class="mood">'+MOOD_TXT[mo.a]+'</span><span class="ssub">This week: '+pl(wk.a,'pt')+' · '+mName+': '+pl(ms.tot.a,'pt')+'</span></div></div>'+
+    '<div class="side a'+(s.a.total<s.b.total?' lead-off':'')+'">'+avatar('a',mo.a)+'<div class="stext"><span class="sname">'+esc(N.a)+'</span><span class="snum">'+fmt(s.a.total)+'</span><span class="mood">'+MOOD_TXT[mo.a]+'</span><span class="ssub">This week: '+pl(wk.a,'pt')+' · '+mName+': '+pl(ms.tot.a,'pt')+'</span></div></div>'+
     '<div class="mid"><span class="eyebrow">Today</span><span class="vs">VS</span><span class="eyebrow">Days won this week '+wk.wonA+'–'+wk.wonB+'</span></div>'+
-    '<div class="side b'+(s.b.total<s.a.total?' lead-off':'')+'">'+avatar('b',mo.b)+'<div class="stext"><span class="sname">'+esc(N.b)+'</span><span class="snum">'+s.b.total+'</span><span class="mood">'+MOOD_TXT[mo.b]+'</span><span class="ssub">This week: '+pl(wk.b,'pt')+' · '+mName+': '+pl(ms.tot.b,'pt')+'</span></div></div>'+
+    '<div class="side b'+(s.b.total<s.a.total?' lead-off':'')+'">'+avatar('b',mo.b)+'<div class="stext"><span class="sname">'+esc(N.b)+'</span><span class="snum">'+fmt(s.b.total)+'</span><span class="mood">'+MOOD_TXT[mo.b]+'</span><span class="ssub">This week: '+pl(wk.b,'pt')+' · '+mName+': '+pl(ms.tot.b,'pt')+'</span></div></div>'+
     '<p class="leadline">'+leadLine(s,day)+'</p></section><main class="grid">';
   function panel(p){
     var sc=s[p],st=streak(p,T),canUndo=day&&day[p]&&day[p].log.length>0;
     return '<section class="panel player p-'+p+'" style="grid-area:'+p+'" aria-label="'+esc(N[p])+'">'+
       '<header class="phead"><span class="pname">'+esc(N[p])+'</span><span class="pstreak">'+(st>0?st+'-day streak':'No streak yet')+'</span></header>'+
-      meter(p,'water',sc)+meter(p,'protein',sc)+
-      '<footer class="pfoot"><span class="breakdown">Water <b>'+sc.w+'</b> · Protein <b>'+sc.pr+'</b> · Chores <b>'+sc.c+'</b></span>'+
+      meter(p,'water',sc)+meter(p,'protein',sc)+treatsBox(p,day)+
+      '<footer class="pfoot"><span class="breakdown">Water <b>'+sc.w+'</b> · Protein <b>'+sc.pr+'</b> · Chores <b>'+sc.c+'</b>'+(sc.neg?' · Treats <b>−'+sc.neg+'</b>':'')+'</span>'+
       '<button class="link" data-act="undo" data-p="'+p+'"'+(canUndo?'':' disabled')+'>Undo</button></footer></section>';
   }
   var ch=(day&&day.chores)||{},done=cfg.chores.filter(function(c){return c.multi?repKeys(ch,c.id).length:ch[c.id]}).length;
@@ -880,7 +899,7 @@ function renderToday(T){
       '<div class="cname"><span class="t">'+esc(c.name)+'</span><span class="m">'+(by?esc(N[by])+' · +'+(ch[c.id].pts||c.pts):'+'+c.pts+' pts')+'</span></div>'+
       '<button class="claim b'+(by==='b'?' on':'')+'" data-act="claim" data-id="'+esc(c.id)+'" data-p="b" aria-pressed="'+(by==='b')+'" aria-label="'+esc(N.b)+' did '+esc(c.name)+'">'+esc(ini.b)+'</button></li>';
   }).join('')+'</ul>';
-  html+='</section>'+panel('b')+'</main><p class="rules">Tap your initial on a chore when you finish it. Chores that repeat score every time: tap again for each go, and press and hold your initial to take one off. Water and protein score up to 15 points each by how close you get to your own target, plus 5 for hitting it. Highest total wins the day. Weeks start on Monday, and the League tab keeps the monthly table.</p>';
+  html+='</section>'+panel('b')+'</main><p class="rules">Tap your initial on a chore when you finish it. Chores that repeat score every time: tap again for each go, and press and hold your initial to take one off. Water and protein score up to 15 points each by how close you get to your own target, plus 5 for hitting it. Sweet treats and fried food cost points (set how many in Settings). Highest total wins the day. Weeks start on Monday, and the League tab keeps the monthly table.</p>';
   return html;
 }
 function niceStep(raw){var p=Math.pow(10,Math.floor(Math.log10(raw))),n=raw/p;return(n<=1?1:n<=2?2:n<=5?5:10)*p}
@@ -948,6 +967,7 @@ function renderLeague(T){
     row('Protein goal hit',dd(ms.pd.a),dd(ms.pd.b),ms.pd.a,ms.pd.b)+
     row('Longest streak',dd(ms.streak.a),dd(ms.streak.b),ms.streak.a,ms.streak.b)+
     row('Best day',best('a'),best('b'),ms.best.a?ms.best.a.pts:0,ms.best.b?ms.best.b.pts:0)+
+    (S.cfg.treat||ms.tr.a||ms.tr.b?row('Treats (fewer wins)',ms.tr.a,ms.tr.b,-ms.tr.a,-ms.tr.b):'')+
     row('Most done chore',top('a'),top('b'),0,0,true)+
     '</tbody></table></div></section></div>';
   var past=Object.keys(at.months).sort().reverse();
@@ -995,10 +1015,10 @@ function ord(n){var s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]
 function dayEvents(d,k){
   if(!d)return[];
   var ev=[];
-  P.forEach(function(p){d[p].log.forEach(function(e){if(e&&(e.k==='water'||e.k==='protein'))ev.push({t:+e.t||0,p:p,kind:e.k,amt:+e.a||0})})});
+  P.forEach(function(p){d[p].log.forEach(function(e){if(e&&(e.k==='water'||e.k==='protein'||TREATS[e.k]))ev.push({t:+e.t||0,p:p,kind:e.k,amt:+e.a||0})})});
   Object.keys(d.chores).forEach(function(key){var c=d.chores[key];if(c&&c.by)ev.push({t:+c.t||0,p:c.by,kind:'chore',key:key,base:key.split('~')[0],name:c.name||key,pts:c.pts||0})});
   ev.sort(function(x,y){return x.t-y.t});
-  var tg={a:targetsFor(d,'a',k),b:targetsFor(d,'b',k)},syn={a:{water:0,protein:0},b:{water:0,protein:0},chores:{}};
+  var tg={a:targetsFor(d,'a',k),b:targetsFor(d,'b',k)},syn={a:{water:0,protein:0,sweet:0,fried:0},b:{water:0,protein:0,sweet:0,fried:0},chores:{}};
   var prev={a:scoreOf(syn,'a',tg.a),b:scoreOf(syn,'b',tg.b)},lead=null,nth={};
   ev.forEach(function(e,i){
     if(e.kind==='chore'){syn.chores[e.key]={by:e.p,pts:e.pts};nth[e.p+e.base]=(nth[e.p+e.base]||0)+1;e.nth=e.key.indexOf('~')>0?nth[e.p+e.base]:0}
@@ -1007,7 +1027,7 @@ function dayEvents(d,k){
     e.gain=now[e.p].total-prev[e.p].total;
     e.hit=e.kind==='water'?now[e.p].hitW&&!prev[e.p].hitW:e.kind==='protein'?now[e.p].hitP&&!prev[e.p].hitP:false;
     e.score={a:now.a.total,b:now.b.total};
-    e.tag=i===0&&e.gain>0?'First on the board':l===e.p&&lead!==l&&i>0?'Takes the lead':'';
+    e.tag=i===0&&e.gain>0?'First on the board':l===e.p&&lead!==l&&i>0?'Takes the lead':lead===e.p&&l!==e.p&&e.gain<0?'Gives away the lead':'';
     lead=l;prev=now;
   });
   return ev;
@@ -1016,22 +1036,22 @@ function renderTimeline(T){
   var N=S.cfg.names,k=S.tlDay&&S.tlDay<=T?S.tlDay:T,d=S.days[k],ev=dayEvents(d,k);
   var earliest=Object.keys(S.days).filter(function(x){return dayActive(S.days[x])}).sort()[0]||T;
   var fin={a:pscore(d,'a',k).total,b:pscore(d,'b',k).total},win=fin.a>fin.b?'a':fin.b>fin.a?'b':null;
-  var swaps=ev.filter(function(e){return e.tag==='Takes the lead'}).length;
+  var swaps=ev.filter(function(e){return e.tag==='Takes the lead'||e.tag==='Gives away the lead'}).length;
   var pill=k===T?'Today so far':win?esc(N[win])+' won':ev.length?'Tie':'Rest day';
   var html='<div class="mnav"><button class="arrow" data-act="tlday" data-d="-1" aria-label="Previous day"'+(k<=earliest?' disabled':'')+'>‹</button>'+
     '<h1>'+dateOf(k).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})+'</h1>'+
     '<button class="arrow" data-act="tlday" data-d="1" aria-label="Next day"'+(k>=T?' disabled':'')+'>›</button>'+
     '<span class="pill'+(k<T&&win?' '+win:'')+'">'+pill+'</span></div>';
-  html+='<section class="panel"><div class="lhead"><h2>Timeline</h2><p>'+esc(N.a)+' '+fin.a+' · '+esc(N.b)+' '+fin.b+' · '+ev.length+' thing'+(ev.length===1?'':'s')+' logged'+(swaps?' · lead changed '+swaps+' time'+(swaps===1?'':'s'):'')+'</p></div>';
+  html+='<section class="panel"><div class="lhead"><h2>Timeline</h2><p>'+esc(N.a)+' '+fmt(fin.a)+' · '+esc(N.b)+' '+fmt(fin.b)+' · '+ev.length+' thing'+(ev.length===1?'':'s')+' logged'+(swaps?' · lead changed '+swaps+' time'+(swaps===1?'':'s'):'')+'</p></div>';
   if(!ev.length)html+='<p class="lempty">Nothing logged on this day.</p>';
   else html+='<ol class="tl">'+ev.map(function(e){
-    var icon=e.kind==='water'?'💧':e.kind==='protein'?'🥚':'🧽';
-    var what=e.kind==='water'?'+'+fmt(e.amt)+' ml water':e.kind==='protein'?'+'+fmt(e.amt)+' g protein':esc(e.name)+(e.nth>1?' ('+ord(e.nth)+' today)':'');
-    var sub=(e.gain>0?'+'+e.gain+' pt'+(e.gain===1?'':'s'):'No extra points')+
+    var icon=TREATS[e.kind]?TREATS[e.kind].icon:e.kind==='water'?'💧':e.kind==='protein'?'🥚':'🧽';
+    var what=TREATS[e.kind]?TREATS[e.kind].said:e.kind==='water'?'+'+fmt(e.amt)+' ml water':e.kind==='protein'?'+'+fmt(e.amt)+' g protein':esc(e.name)+(e.nth>1?' ('+ord(e.nth)+' today)':'');
+    var sub=(e.gain>0?'+'+e.gain+' pt'+(e.gain===1?'':'s'):e.gain<0?'−'+(-e.gain)+' pt'+(e.gain===-1?'':'s'):'No extra points')+
       (e.hit?' · <span class="hit">'+(e.kind==='water'?'Water':'Protein')+' target hit</span>':'')+(e.tag?' · <span class="tag">'+e.tag+'</span>':'');
     var at=e.t?new Date(e.t):null,tm=at?pad(at.getHours())+':'+pad(at.getMinutes()):'--:--';
     return '<li class="tli"><div class="tle '+e.p+'"><span class="tlw">'+icon+' <b>'+esc(N[e.p])+'</b> '+what+'</span><span class="tls">'+sub+'</span></div>'+
-      '<div class="tlt"><span class="num">'+tm+'</span><span class="tlsc" aria-label="Score '+esc(N.a)+' '+e.score.a+', '+esc(N.b)+' '+e.score.b+'"><i class="a">'+e.score.a+'</i> – <i class="b">'+e.score.b+'</i></span></div></li>';
+      '<div class="tlt"><span class="num">'+tm+'</span><span class="tlsc" aria-label="Score '+esc(N.a)+' '+e.score.a+', '+esc(N.b)+' '+e.score.b+'"><i class="a">'+fmt(e.score.a)+'</i> – <i class="b">'+fmt(e.score.b)+'</i></span></div></li>';
   }).join('')+'</ol>';
   return html+'</section>';
 }
@@ -1053,7 +1073,13 @@ function add(p,kind,amt){
 }
 function undo(p){
   var T=todayKey(),d=S.days[T],e=d&&d[p].log[d[p].log.length-1];if(!e)return;
-  dispatch({t:'undo',p:p});toast('Removed '+e.a+(e.k==='water'?' ml water':' g protein')+' for '+S.cfg.names[p]);
+  dispatch({t:'undo',p:p});toast(TREATS[e.k]?'Took back '+(e.k==='sweet'?'the sweet treat':'the fried food')+' for '+S.cfg.names[p]+', +'+e.a+' pts':'Removed '+e.a+(e.k==='water'?' ml water':' g protein')+' for '+S.cfg.names[p]);
+}
+function treat(p,k){
+  var v=S.cfg.treat,t=S.cfg.targets[p];if(!v||!TREATS[k])return;
+  setReact(p,'guilty',2200);
+  dispatch({t:'add',p:p,k:k,amt:v,tw:t.water,tp:t.protein});
+  toast(TREATS[k].icon+' '+S.cfg.names[p]+' '+TREATS[k].said+'. −'+v+' pts');
 }
 function claim(id,p){
   var T=todayKey(),d=S.days[T],c=S.cfg.chores.filter(function(x){return x.id===id})[0];if(!c)return;
@@ -1091,6 +1117,7 @@ app.addEventListener('click',function(e){
   if(a==='add')add(b.dataset.p,b.dataset.k,+b.dataset.amt);
   else if(a==='undo')undo(b.dataset.p);
   else if(a==='claim')claim(b.dataset.id,b.dataset.p);
+  else if(a==='treat')treat(b.dataset.p,b.dataset.k);
   else if(a==='rep'){if(held)held=false;else rep(b.dataset.id,b.dataset.p)}
   else if(a==='view'){S.view=b.dataset.v;if(S.view==='league')S.month=todayKey().slice(0,7);if(S.view==='timeline')S.tlDay=todayKey();render();window.scrollTo(0,0)}
   else if(a==='tlday'){S.tlDay=addDays(S.tlDay||todayKey(),+b.dataset.d);render()}
@@ -1111,7 +1138,7 @@ var sleepEl=document.getElementById('sleep'),sleeping=false,lastActive=Date.now(
 function updateSleepText(){
   var now=new Date();document.getElementById('sclock').textContent=pad(now.getHours())+':'+pad(now.getMinutes());
   var T=todayKey(),d=S.days[T],N=S.cfg.names;
-  document.getElementById('sscore').textContent='Today  '+N.a+' '+pscore(d,'a',T).total+'  ·  '+N.b+' '+pscore(d,'b',T).total;
+  document.getElementById('sscore').textContent='Today  '+N.a+' '+fmt(pscore(d,'a',T).total)+'  ·  '+N.b+' '+fmt(pscore(d,'b',T).total);
 }
 function goSleep(){if(sleeping)return;sleeping=true;document.getElementById('savs').innerHTML=avatar('a','sleep')+avatar('b','sleep');updateSleepText();sleepEl.hidden=false}
 function wake(){
@@ -1170,6 +1197,7 @@ function readDraft(){
   });
   draft.cfg.chores.forEach(function(c){var m=document.getElementById('cm-'+c.id);if(m){if(m.checked)c.multi=true;else delete c.multi}});
   draft.cfg.chores.forEach(function(c){var n=v('cn-'+c.id),pt=v('cp-'+c.id);if(n!==null)c.name=n.trim();if(pt!==null)c.pts=Math.max(1,Math.min(50,Math.round(+pt||5)))});
+  if(v('treat')!==null)draft.cfg.treat=+v('treat');
   if(v('idle')!==null)draft.dev.idle=+v('idle')||90;if(v('sens')!==null)draft.dev.sens=+v('sens')||6;
   if(v('su')!==null)draft.sheetUrl=v('su');if(v('sk')!==null)draft.sheetKey=v('sk');
 }
@@ -1182,7 +1210,11 @@ function drawSettings(){
       '<div class="field"><label for="w-'+p+'">Water target (ml)</label><input id="w-'+p+'" type="number" inputmode="numeric" min="250" step="250" value="'+c.targets[p].water+'"></div>'+
       '<div class="field"><label for="pr-'+p+'">Protein target (g)</label><input id="pr-'+p+'" type="number" inputmode="numeric" min="10" step="5" value="'+c.targets[p].protein+'"></div>';
   });
-  h+='</div><p class="note">Points come from how close each of you gets to your own target, so different targets still make a fair fight.</p></div>';
+  var tOpts=[[0,'Nothing (hide the buttons)'],[2,'2 points'],[3,'3 points'],[5,'5 points'],[10,'10 points']];
+  if(!tOpts.some(function(o){return o[0]===c.treat}))tOpts.push([c.treat,c.treat+' points']);
+  h+='</div><p class="note">Points come from how close each of you gets to your own target, so different targets still make a fair fight.</p>'+
+    '<div class="fgrid" style="margin-top:12px"><div class="field"><label for="treat">Each sweet treat or fried food costs</label><select id="treat">'+
+    tOpts.map(function(o){return '<option value="'+o[0]+'"'+(c.treat===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></div></div></div>';
   h+='<div><h3>Chores and points</h3><div class="celist">'+c.chores.map(function(ch){
     return '<div class="crow-edit"><input id="cn-'+esc(ch.id)+'" value="'+esc(ch.name)+'" maxlength="60" aria-label="Chore name"><input id="cp-'+esc(ch.id)+'" type="number" inputmode="numeric" min="1" max="50" value="'+ch.pts+'" aria-label="Points"><label class="repeats"><input type="checkbox" id="cm-'+esc(ch.id)+'"'+(ch.multi?' checked':'')+'>Repeats</label><button class="sbtn" data-s="rm" data-id="'+esc(ch.id)+'">Remove</button></div>';
   }).join('')+'</div><div class="srow"><button class="sbtn" data-s="addchore">Add chore</button></div><p class="note">Tick <b>Repeats</b> for chores that can happen several times a day, like pumping. Each go scores again, and nobody can steal it.</p></div>';

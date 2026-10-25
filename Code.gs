@@ -25,7 +25,7 @@ function normDay(d,k){
   ['a','b'].forEach(function(p){var x=d[p]=d[p]||{};x.water=+x.water||0;x.protein=+x.protein||0;x.log=Array.isArray(x.log)?x.log:[]});
   d.chores=d.chores&&typeof d.chores==='object'?d.chores:{};d.seen=Array.isArray(d.seen)?d.seen:[];d.date=k;return d;
 }
-function dayActive(d){if(!d)return false;return ['a','b'].some(function(p){return d[p]&&(d[p].water>0||d[p].protein>0)})||Object.keys(d.chores||{}).length>0}
+function dayActive(d){if(!d)return false;return ['a','b'].some(function(p){return d[p]&&(d[p].water>0||d[p].protein>0||d[p].sweet>0||d[p].fried>0)})||Object.keys(d.chores||{}).length>0}
 function applyOp(d,o){
   if(o.id&&d.seen.indexOf(o.id)>=0)return d;
   if(o.t==='add'){var x=d[o.p];x[o.k]=(x[o.k]||0)+o.amt;x.log.push({k:o.k,a:o.amt,t:o.ts});if(x.log.length>40)x.log=x.log.slice(-40);if(o.tw){x.tw=o.tw;x.tp=o.tp}}
@@ -40,7 +40,8 @@ function scoreOf(d,p,t){
   var x=(d&&d[p])||{water:0,protein:0},hitW=x.water>=t.water,hitP=x.protein>=t.protein;
   var w=Math.round(Math.min(1,x.water/t.water)*15)+(hitW?5:0),pr=Math.round(Math.min(1,x.protein/t.protein)*15)+(hitP?5:0);
   var c=0,cn=0,ch=(d&&d.chores)||{};for(var id in ch){if(ch[id]&&ch[id].by===p){c+=ch[id].pts||0;cn++}}
-  return{w:w,pr:pr,c:c,cn:cn,total:w+pr+c,hitW:hitW,hitP:hitP,water:x.water||0,protein:x.protein||0,t:t};
+  var neg=(+x.sweet||0)+(+x.fried||0);
+  return{w:w,pr:pr,c:c,cn:cn,neg:neg,total:w+pr+c-neg,hitW:hitW,hitP:hitP,water:x.water||0,protein:x.protein||0,t:t};
 }
 /* SHARED END */
 

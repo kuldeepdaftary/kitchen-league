@@ -141,6 +141,23 @@ test('a repeatable chore scores every go, and taking one off removes only that g
   assert.deepEqual(Object.keys(b.get({key, since: '0'}).days[date].chores).sort(), ['pump~1', 'pump~3']);
 });
 
+test('treats cost their points in the sheet, and Undo gives them back', () => {
+  const b = loadBackend(), key = b.ctx.setup(), date = '2026-10-25';
+  const treat = (id, k) => ({t: 'add', id, ts: 1, date, p: 'a', k, amt: 5, tw: 3000, tp: 120});
+  b.post({key, config: CFG, ops: [addWater('w1', date, 3000), treat('t1', 'sweet'), treat('t2', 'fried')]});
+  assert.equal(b.sheets.Days.cells[1][3], 10, '20 for water, minus two treats at 5');
+  b.post({key, ops: [{t: 'undo', id: 'u1', ts: 2, date, p: 'a'}]});
+  assert.equal(b.sheets.Days.cells[1][3], 15, 'undo takes back the fried food');
+  const day = b.get({key, since: '0'}).days[date];
+  assert.equal(day.a.sweet, 5);
+  assert.equal(day.a.fried, 0);
+});
+
+test('a day with only a treat logged still counts as played', () => {
+  const b = loadBackend();
+  assert.equal(b.ctx.dayActive({a: {water: 0, protein: 0, sweet: 5}, b: {water: 0, protein: 0}, chores: {}}), true);
+});
+
 test('an op that arrives twice is applied once', () => {
   const b = loadBackend(), key = b.ctx.setup(), date = '2026-10-25';
   b.post({key, ops: [addWater('same', date, 500)]});
