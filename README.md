@@ -1,6 +1,6 @@
 # Kitchen League
 
-A head-to-head household game for the kitchen iPad. Two players score points for chores, water and protein, and the cartoon faces react to every tap. The Today tab is the daily match, League keeps the monthly table, and Trophies is the cabinet of bronze, silver and gold awards.
+A head-to-head household game for the kitchen iPad. Two players score points for chores, water and protein, and the cartoon faces react to every tap. The Today tab is the daily match, League keeps the monthly table, Trophies is the cabinet of bronze, silver and gold awards, and Timeline shows each day's entries in order with the running score.
 
 Scores are kept in a Google Sheet in your Drive, so every device shows the same game. The app is one HTML file with no build step.
 
