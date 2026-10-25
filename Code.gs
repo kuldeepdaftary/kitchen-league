@@ -9,6 +9,8 @@
  * That keeps the same /exec address, so no device needs reconnecting. The key lives in Script Properties, so pasting never resets it.
  * The "Days" tab gets one row per day with both scores, so you can chart or pivot it in Sheets.
  * Don't edit the "Data" column by hand.
+ *
+ * @OnlyCurrentDoc Limits the script's access to this one spreadsheet, not all of your Drive.
  */
 // Only used if Set up has never made a key. Leave it alone unless you'd rather pick your own phrase.
 var KEY = 'CHANGE-ME-to-a-long-random-phrase';
